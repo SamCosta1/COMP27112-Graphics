@@ -18,6 +18,7 @@ Authors:     Toby Howard
 #define RUN_SPEED  0.15
 #define TURN_ANGLE 4.0
 #define DEG_TO_RAD 0.017453293
+#define CROUCH_AMOUNT 1.1
 
 GLdouble lat,     lon;              /* View angles (degrees)    */
 GLdouble mlat,    mlon;             /* Mouse look offset angles */
@@ -229,11 +230,33 @@ void display(void) {
 
 //////////////////////////////////////////////
 
+int time = -1;
+GLfloat originalEyeY = -1;
+void jump() {
+   if (time < 0)
+      return;
+
+   // #frames the jump lasts
+   double jumpLength = 150;
+
+   // Parameters based on the jumplength for a realistic jump
+   double a = -4 / (jumpLength * jumpLength);
+   double b = 4 / jumpLength;
+   eyey = (a * time * time) + b * time + originalEyeY;
+
+   time++;
+   if (eyey < originalEyeY) {
+      time = -1; // Stop the jump
+      eyey = originalEyeY;
+   }
+
+}
+
 void spin(void) {
   // Spin the mystical object
-  ang= ang + 1.0; if (ang > 360.0) ang= ang - 360.0;
+  ang= ang + 1.j; if (ang > 360.0) ang= ang - 360.0;
 
-  /* To be completed */
+  jump();
 
   glutPostRedisplay();
 } //spin()
@@ -272,8 +295,8 @@ GLfloat mouseOffset(int coordinate, int coordinateOffset, double multiplier) {
 }
 
 void mouse_motion(int x, int y) {
-   GLfloat mlon = mouseOffset(x, width / 2, 0.003);
-   GLfloat mlat = mouseOffset(y, height / 2, 0.003);
+   GLfloat mlon = mouseOffset(x, width / 2, 0.002);
+   GLfloat mlat = mouseOffset(y, height / 2, 0.002);
 
    lon += mlon;
    if (isInRange(-90, 90, lat + mlat))
@@ -290,6 +313,7 @@ GLfloat dZ (GLdouble angle, GLdouble distance) {
    return distance * cos(angle * DEG_TO_RAD);
 }
 
+int crouching = 0;
 void keyboard(unsigned char key, int x, int y) {
   switch (key) {
      case 27:  /* Escape key */
@@ -306,10 +330,31 @@ void keyboard(unsigned char key, int x, int y) {
        eyez -= dZ(lon + 90, RUN_SPEED);
      break;
 
+     case 'C':
+     case 'c': // Crouch
+
+       if (crouching) {
+          eyey += CROUCH_AMOUNT;
+          crouching = 0;
+       } else {
+          eyey -= CROUCH_AMOUNT;
+          crouching = 1;
+       }
+     break;
+
+     case 32:  // Jump
+       if (time == -1) {  // Ensure jump isn't already in progress
+          time = 0;
+          originalEyeY = eyey;
+       }
+     break;
+
    }
 } // keyboard()
 
 //////////////////////////////////////////////
+
+
 
 void cursor_keys(int key, int x, int y) {
   switch (key) {
