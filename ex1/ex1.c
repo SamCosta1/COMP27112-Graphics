@@ -237,7 +237,7 @@ void jump() {
       return;
 
    // #frames the jump lasts
-   double jumpLength = 150;
+   double jumpLength = 90;
 
    // Parameters based on the jumplength for a realistic jump
    double a = -4 / (jumpLength * jumpLength);
