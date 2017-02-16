@@ -25,7 +25,7 @@ Authors:     Toby Howard
 #define ORBIT_POLY_SIDES 40
 #define TIME_STEP 0.5   /* days per frame */
 
-typedef struct { 
+typedef struct {
   char    name[20];       /* name */
   GLfloat r, g, b;        /* colour */
   GLfloat orbital_radius; /* distance to parent body (km) */
@@ -41,27 +41,38 @@ typedef struct {
 
 body  bodies[MAX_BODIES];
 int   numBodies, current_view, draw_labels, draw_orbits, draw_starfield;
+float date;
 
 /*****************************/
 
-float myRand (void)
-{
+float myRand (void) {
   /* return a random float in the range [0,1] */
-
   return (float) rand() / RAND_MAX;
 }
 
 /*****************************/
 
-void drawStarfield (void)
-{
-  /* This is for you to complete. */
+float randomInRange(float rand) {
+    float cubeWidth = 600000000;
+
+    // Shifting result to get -ive and +ive values
+    return (rand * cubeWidth) - cubeWidth;
+}
+
+void drawStarfield (void) {
+    glColor3f(1.0, 1.0, 1.0);
+    glBegin(GL_POINTS);
+        int i;
+        for (i = 0; i < 1000; i++);
+        glVertex3f(randomInRange(myRand()),
+                   randomInRange(myRand()),
+                   randomInRange(myRand()));
+    glEnd();
 }
 
 /*****************************/
 
-void readSystem(void)
-{
+void readSystem(void) {
   /* reads in the description of the solar system */
 
   FILE *f;
@@ -75,9 +86,8 @@ void readSystem(void)
      exit(0);
   }
   fscanf(f, "%d", &numBodies);
-  for (i= 0; i < numBodies; i++)
-  {
-    fscanf(f, "%s %f %f %f %f %f %f %f %f %f %d", 
+  for (i= 0; i < numBodies; i++)  {
+    fscanf(f, "%s %f %f %f %f %f %f %f %f %f %d",
       bodies[i].name,
       &bodies[i].r, &bodies[i].g, &bodies[i].b,
       &bodies[i].orbital_radius,
@@ -108,22 +118,50 @@ void drawString (void *font, float x, float y, char *str)
 
 /*****************************/
 
+void drawAxis() {
+    GLfloat endPoint = 1000000000;
+
+
+    glLineWidth(1.0);
+
+    glBegin(GL_LINES);
+
+    // X axis
+    glColor3f(1.0, 0.0, 0.0);
+    glVertex3f(endPoint, 0.0, 0.0);
+    glVertex3f(-endPoint, 0.0,  0.0);
+
+    //Y axis
+    glColor3f(0.0, 1.0, 0.0);
+    glVertex3f(0.0, endPoint, 0.0);
+    glVertex3f(0.0, -endPoint, 0.0);
+
+    //Z axis
+    glColor3f(0.0, 0.0, 1.0);
+    glVertex3f(0.0, 0.0, endPoint);
+    glVertex3f(0.0, 0.0, -endPoint);
+
+    glEnd();
+}
+
 void setView (void) {
   glMatrixMode(GL_MODELVIEW);
   glLoadIdentity();
   switch (current_view) {
   case TOP_VIEW:
-    /* This is for you to complete. */
-    break;  
+    gluLookAt (0.0, 500000000.0, 0.0,
+               0.0, 0.0, 0.0,
+               0.0, 0.0, -1.0);
+    break;
   case ECLIPTIC_VIEW:
     /* This is for you to complete. */
-    break;  
+    break;
   case SHIP_VIEW:
-    /* This is for you to complete. */    
-    break;  
-  case EARTH_VIEW: 
     /* This is for you to complete. */
-    break;  
+    break;
+  case EARTH_VIEW:
+    /* This is for you to complete. */
+    break;
   }
 }
 
@@ -181,6 +219,8 @@ void animate(void)
 {
   int i;
 
+  date+= TIME_STEP;
+
     for (i= 0; i < numBodies; i++)  {
       bodies[i].spin += 360.0 * TIME_STEP / bodies[i].rot_period;
       bodies[i].orbit += 360.0 * TIME_STEP / bodies[i].orbital_period;
@@ -199,19 +239,23 @@ void drawOrbit (int n)
 
 /*****************************/
 
-void drawLabel(int n)
-{ /* Draws the name of body "n" */
+void drawLabel(int n) {
+     /* Draws the name of body "n" */
 
     /* This is for you to complete. */
 }
 
 /*****************************/
 
-void drawBody(int n)
-{
- /* Draws body "n" */
-
-    /* This is for you to complete. */
+void drawBody(int n) {
+    if (n!=0)
+        return;
+    glPushMatrix();
+        glRotatef(bodies[0].spin, 0, 0, 0);
+        glScalef(bodies[0].radius, bodies[0].radius, bodies[0].radius);
+        glutSolidSphere(1.0, 1000, 1000);
+        (&(bodies[0]))->spin++;
+    glPopMatrix();
 }
 
 /*****************************/
@@ -224,6 +268,9 @@ void display(void)
 
   /* set the camera */
   setView();
+  drawAxis();
+
+
 
   if (draw_starfield)
     drawStarfield();
@@ -247,7 +294,7 @@ void reshape(int w, int h)
   glLoadIdentity();
   gluPerspective (48.0, (GLfloat) w/(GLfloat) h, 10000.0, 800000000.0);
 }
-  
+
 /*****************************/
 
 void keyboard(unsigned char key, int x, int y)
@@ -257,7 +304,7 @@ void keyboard(unsigned char key, int x, int y)
     case 27:  /* Escape key */
       exit(0);
   }
-} 
+}
 
 /*****************************/
 
@@ -268,7 +315,7 @@ int main(int argc, char** argv)
   glutCreateWindow ("COMP27112 Exercise 2");
   glutFullScreen();
   init ();
-  glutDisplayFunc (display); 
+  glutDisplayFunc (display);
   glutReshapeFunc (reshape);
   glutKeyboardFunc (keyboard);
   glutIdleFunc (animate);
