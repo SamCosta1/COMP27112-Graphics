@@ -40,7 +40,8 @@ typedef struct {
  } body;
 
 body  bodies[MAX_BODIES];
-int   numBodies, current_view, draw_labels, draw_orbits, draw_starfield;
+int   numBodies, current_view;
+bool draw_labels, draw_orbits, draw_starfield, earth_view;
 float date;
 
 /*****************************/
@@ -124,7 +125,7 @@ void drawString (void *font, float x, float y, char *str)
 /*****************************/
 
 void drawAxis() {
-    GLfloat endPoint = 1000000000;
+    GLfloat endPoint = 3000000000;
 
 
     glLineWidth(1.0);
@@ -152,20 +153,32 @@ void drawAxis() {
 void setView (void) {
   glMatrixMode(GL_MODELVIEW);
   glLoadIdentity();
+  earth_view = false;
   switch (current_view) {
   case TOP_VIEW:
-    gluLookAt (0.0, 100000000.0, 0.0,
+    gluLookAt (0.0, 600000000.0, 0.0,
                0.0, 0.0, 0.0,
                0.0, 0.0, -1.0);
     break;
   case ECLIPTIC_VIEW:
-    /* This is for you to complete. */
+    gluLookAt (0.0, 0.0, 400000000.0,
+               0.0, 0.0, 0.0,
+               0.0, 1.0, 0.0);
+
     break;
   case SHIP_VIEW:
-    /* This is for you to complete. */
+    gluLookAt (315193193.291, 105193193.291, 315193193.291,
+               0.0, 0.0, 0.0,
+               0.0, 1.0, 0.0);
+
     break;
   case EARTH_VIEW:
-    /* This is for you to complete. */
+    float x = cos(bodies[3].orbit * DEG_TO_RAD) * bodies[3].orbital_radius;
+    float y = x * tan(bodies[3].orbital_tilt * DEG_TO_RAD) + 1.1*bodies[3].radius;
+    float z = sin(bodies[3].orbit * DEG_TO_RAD) * bodies[3].orbital_radius;
+    gluLookAt(x  , y  , z ,
+              0.0, 0.0, 0.0,
+              0.0, 1.0, 0.0);
     break;
   }
 }
@@ -213,11 +226,11 @@ void init(void)
   glutAddMenuEntry ("Quit", 8);
   glutAttachMenu (GLUT_RIGHT_BUTTON);
 
-  current_view= TOP_VIEW;
-  draw_labels= 1;
-  draw_orbits= 1;
-  draw_starfield= 1;
-
+  current_view = TOP_VIEW;
+  draw_labels = true;
+  draw_orbits = true;
+  draw_starfield = true;
+  earth_view = false;
 }
 
 /*****************************/
@@ -237,16 +250,30 @@ void animate(void)
 
 /*****************************/
 
-void drawOrbit (int n)
-{ /* Draws a polygon to approximate the circular
-     orbit of body "n" */
+void drawOrbit (int n) {
+    if (!draw_orbits)
+        return;
 
-    /* This is for you to complete. */
+    int noVerticies = ORBIT_POLY_SIDES;
+    float theta = 360 / noVerticies;
+
+    glColor3f(bodies[n].r, bodies[n].g, bodies[n].b);
+    glBegin(GL_LINE_LOOP);
+
+    for (int i = 0; i < noVerticies; i++) {
+        float x = cos(i * theta * DEG_TO_RAD) * bodies[n].orbital_radius;
+        float y = x * tan(bodies[n].orbital_tilt * DEG_TO_RAD);
+        float z = sin(i * theta * DEG_TO_RAD) * bodies[n].orbital_radius;
+        glVertex3f(x, y , z);
+    }
+    glEnd();
 }
 
 /*****************************/
 
 void drawLabel(int n) {
+    if (!draw_labels)
+        return;
      /* Draws the name of body "n" */
 
     /* This is for you to complete. */
@@ -255,8 +282,10 @@ void drawLabel(int n) {
 /*****************************/
 
 void tiltAndDrawAxis(int n) {
-    GLfloat x = acos(bodies[n].axis_tilt * DEG_TO_RAD);
-    GLfloat y = asin(bodies[n].axis_tilt * DEG_TO_RAD);
+    float angle = bodies[n].axis_tilt;
+    GLfloat x = sin(angle * DEG_TO_RAD);
+    GLfloat y = cos(angle * DEG_TO_RAD);
+
 
     glRotatef(bodies[n].spin, x, y, 0);
 
@@ -269,37 +298,23 @@ void tiltAndDrawAxis(int n) {
 }
 
 void drawBody(int n) {
-    if (n!=1 && n!=0)
+    if (bodies[n].orbits_body != 0)
         return;
-/*
-if (n == 0) {
     glPushMatrix();
-        glTranslatef(0, 0, 0);
-        tiltAndDrawAxis(0);
-        glScalef(bodies[n].radius, bodies[n].radius, bodies[n].radius);
+        glRotatef(bodies[n].orbital_tilt, 0, 0, 1);
 
-        glColor3f(bodies[n].r, bodies[n].g, bodies[n].b);
-        glutWireSphere(1.0, 10, 10);
+        float x = cos(bodies[n].orbit * DEG_TO_RAD) * bodies[n].orbital_radius;
+        float z = sin(bodies[n].orbit * DEG_TO_RAD) * bodies[n].orbital_radius;
+        glTranslatef(x, 1, z);
 
-        (&(bodies[0]))->spin++;
-    glPopMatrix();return;}
-*/
-    glPushMatrix();
-        glRotatef(bodies[n].orbital_tilt,
-                  acos(bodies[n].orbital_tilt * DEG_TO_RAD),
-                  asin(bodies[n].orbital_tilt * DEG_TO_RAD), 0);
-        glTranslatef(bodies[n].orbital_radius, 0, 0);
-        tiltAndDrawAxis(1);
+        tiltAndDrawAxis(n);
         glRotatef(90.0, 1.0, 0, 0);
         glScalef(bodies[n].radius, bodies[n].radius, bodies[n].radius);
 
         glColor3f(bodies[n].r, bodies[n].g, bodies[n].b);
-        glutWireSphere(1.0, 10, 10);
-        (&(bodies[n]))->spin++;
+        glutSolidSphere(1.0, 100, 100);
     glPopMatrix();
-
-
-
+    drawOrbit(n);
 }
 
 /*****************************/
@@ -313,8 +328,6 @@ void display(void)
   /* set the camera */
   setView();
   drawAxis();
-
-
 
   if (draw_starfield)
     drawStarfield();
