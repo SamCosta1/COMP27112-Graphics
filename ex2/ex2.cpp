@@ -14,7 +14,7 @@ Authors:     Toby Howard
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
-000
+
 #define MAX_BODIES 20
 #define TOP_VIEW 1
 #define ECLIPTIC_VIEW 2
@@ -250,6 +250,17 @@ void animate(void)
 
 /*****************************/
 
+float getBodyX(int n, float angle) {
+    return cos(angle * DEG_TO_RAD) * bodies[n].orbital_radius;
+}
+
+float getBodyY(int n, float angle) {
+    return getBodyX(n, angle) * tan(bodies[n].orbital_tilt * DEG_TO_RAD);
+}
+
+float getBodyZ(int n, float angle) {
+    return sin(angle * DEG_TO_RAD) * bodies[n].orbital_radius;
+}
 void drawOrbit (int n) {
     if (!draw_orbits)
         return;
@@ -261,13 +272,20 @@ void drawOrbit (int n) {
     glBegin(GL_LINE_LOOP);
 
     for (int i = 0; i < noVerticies; i++) {
-        float x = cos(i * theta * DEG_TO_RAD) * bodies[n].orbital_radius;
-        float y = x * tan(bodies[n].orbital_tilt * DEG_TO_RAD);
-        float z = sin(i * theta * DEG_TO_RAD) * bodies[n].orbital_radius;
+        float x = getBodyX(n, i * theta);
+        float y = getBodyY(n, i * theta);
+        float z = getBodyZ(n, i * theta);
+
+        if (bodies[n].orbits_body != 0) {
+            x += getBodyX(bodies[n].orbits_body, bodies[n].orbit);
+            y += getBodyY(bodies[n].orbits_body, bodies[n].orbit);
+            z += getBodyZ(bodies[n].orbits_body, bodies[n].orbit);
+        }
         glVertex3f(x, y , z);
     }
     glEnd();
 }
+
 
 /*****************************/
 
@@ -297,15 +315,31 @@ void tiltAndDrawAxis(int n) {
     glEnd();
 }
 
+
 void drawBody(int n) {
-    if (bodies[n].orbits_body != 0)
-        return;
+
     glPushMatrix();
+        float x = getBodyX(n, bodies[n].orbit);
+        float y = getBodyY(n, bodies[n].orbit);
+        float z = getBodyZ(n, bodies[n].orbit);
+
+        int parent = bodies[n].orbits_body;
+
+        float parentX = getBodyX(parent, bodies[parent].orbit);
+        float parentY = getBodyY(parent, bodies[parent].orbit);
+        float parentZ = getBodyZ(parent, bodies[parent].orbit);
+
+        if (bodies[n].orbits_body != 0) {
+            glRotatef(bodies[n].orbital_tilt, parentX, parentY, 1);
+            glTranslatef(x, 1, z);
+        }
+
         glRotatef(bodies[n].orbital_tilt, 0, 0, 1);
 
-        float x = cos(bodies[n].orbit * DEG_TO_RAD) * bodies[n].orbital_radius;
-        float z = sin(bodies[n].orbit * DEG_TO_RAD) * bodies[n].orbital_radius;
-        glTranslatef(x, 1, z);
+        if (bodies[n].orbits_body == 0)
+            glTranslatef(x, 1, z);
+        else
+            glTranslatef(parentX, 1, parentZ);
 
         tiltAndDrawAxis(n);
         glRotatef(90.0, 1.0, 0, 0);
