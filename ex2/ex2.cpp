@@ -14,7 +14,7 @@ Authors:     Toby Howard
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
-
+000
 #define MAX_BODIES 20
 #define TOP_VIEW 1
 #define ECLIPTIC_VIEW 2
