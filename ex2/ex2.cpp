@@ -24,6 +24,8 @@ Authors:     Toby Howard
 #define DEG_TO_RAD 0.017453293
 #define ORBIT_POLY_SIDES 40
 #define TIME_STEP 0.5   /* days per frame */
+#define SHIP_SPEED  5000000
+#define TURN_ANGLE 4.0
 
 typedef struct {
   char    name[20];       /* name */
@@ -41,8 +43,16 @@ typedef struct {
 
 body  bodies[MAX_BODIES];
 int   numBodies, current_view;
-bool draw_labels, draw_orbits, draw_starfield, earth_view;
+bool draw_labels, draw_orbits, draw_starfield, earth_view, draw_axis;
 float date;
+
+/* Coordinate info for spaceship view where user can move around */
+GLdouble lat,     lon;              /* View angles (degrees)    */
+GLdouble mlat,    mlon;             /* Mouse look offset angles */
+GLfloat  eyex,    eyey,    eyez;    /* Eye point                */
+GLfloat  centerx, centery, centerz; /* Look point               */
+GLfloat  upx,     upy,     upz;     /* View up vector           */
+
 
 /*****************************/
 
@@ -74,6 +84,16 @@ void drawStarfield (void) {
         for (int i = 0; i < 1000; i+=3)
             glVertex3f(starField[i], starField[i+1], starField[i+2]);
     glEnd();
+}
+
+void calculate_lookpoint(void) {
+   GLfloat dirx = cos(lat * DEG_TO_RAD) * sin(lon * DEG_TO_RAD);
+   GLfloat diry = sin(lat * DEG_TO_RAD);
+   GLfloat dirz = cos(lat * DEG_TO_RAD) * cos(lon * DEG_TO_RAD);
+/*
+   centerx = eyex + dirx;
+   centery = eyey + diry;
+   centerz = eyez + dirz;*/
 }
 
 /*****************************/
@@ -109,8 +129,10 @@ void readSystem(void) {
     bodies[i].orbit= myRand() * 360.0; /* Start each body's orbit at a
                                           random angle */
     bodies[i].radius*= 1000.0; /* Magnify the radii to make them visible */
+    printf("Name: %9s : Orbital Tilt: %f: Axis Tilt: %f\n", bodies[i].name, bodies[i].orbital_tilt, bodies[i].axis_tilt);
   }
   fclose(f);
+
 }
 
 /*****************************/
@@ -150,6 +172,7 @@ void drawAxis() {
     glEnd();
 }
 
+
 void setView (void) {
   glMatrixMode(GL_MODELVIEW);
   glLoadIdentity();
@@ -167,9 +190,15 @@ void setView (void) {
 
     break;
   case SHIP_VIEW:
-    gluLookAt (315193193.291, 105193193.291, 315193193.291,
+   printf("%f %f %f\n%f %f %f\n%f %f %f\n\n",eyex, eyey, eyez,
+                centerx,  centery, centerz,
+                upx, upy, upz);fflush(stdout);
+     gluLookAt (eyex, eyey, eyez,
+                centerx,  centery, centerz,
+                upx, upy, upz);/*
+ gluLookAt (315193193.291, 105193193.291, 315193193.291,
                0.0, 0.0, 0.0,
-               0.0, 1.0, 0.0);
+               0.0, 1.0, 0.0);*/
 
     break;
   case EARTH_VIEW:
@@ -231,6 +260,17 @@ void init(void)
   draw_orbits = true;
   draw_starfield = true;
   earth_view = false;
+  draw_axis = false;
+
+  // Default values for spaceship view
+  eyex = eyez =  315193193.291;
+  eyey = 105193193.0;
+  centerx = centery = centerz = 0;
+  upx = upz = 0;
+  upy = 1;
+
+  lat = -45.0;
+  lon = -45.0;
 }
 
 /*****************************/
@@ -264,6 +304,7 @@ float getBodyZ(int n, float angle) {
 void drawOrbit (int n) {
     if (!draw_orbits)
         return;
+    int parent = bodies[n].orbits_body;
 
     int noVerticies = ORBIT_POLY_SIDES;
     float theta = 360 / noVerticies;
@@ -277,9 +318,9 @@ void drawOrbit (int n) {
         float z = getBodyZ(n, i * theta);
 
         if (bodies[n].orbits_body != 0) {
-            x += getBodyX(bodies[n].orbits_body, bodies[n].orbit);
-            y += getBodyY(bodies[n].orbits_body, bodies[n].orbit);
-            z += getBodyZ(bodies[n].orbits_body, bodies[n].orbit);
+            x += getBodyX(parent, bodies[parent].orbit);
+            y += getBodyY(parent, bodies[parent].orbit);
+            z += getBodyZ(parent, bodies[parent].orbit);
         }
         glVertex3f(x, y , z);
     }
@@ -318,6 +359,7 @@ void tiltAndDrawAxis(int n) {
 
 void drawBody(int n) {
 
+
     glPushMatrix();
         float x = getBodyX(n, bodies[n].orbit);
         float y = getBodyY(n, bodies[n].orbit);
@@ -330,7 +372,6 @@ void drawBody(int n) {
         float parentZ = getBodyZ(parent, bodies[parent].orbit);
 
         if (bodies[n].orbits_body != 0) {
-            glRotatef(bodies[n].orbital_tilt, parentX, parentY, 1);
             glTranslatef(x, 1, z);
         }
 
@@ -339,14 +380,14 @@ void drawBody(int n) {
         if (bodies[n].orbits_body == 0)
             glTranslatef(x, 1, z);
         else
-            glTranslatef(parentX, 1, parentZ);
+            glTranslatef(parentX, parentY, parentZ);
 
         tiltAndDrawAxis(n);
         glRotatef(90.0, 1.0, 0, 0);
         glScalef(bodies[n].radius, bodies[n].radius, bodies[n].radius);
 
         glColor3f(bodies[n].r, bodies[n].g, bodies[n].b);
-        glutSolidSphere(1.0, 100, 100);
+        glutWireSphere(1.0, 10, 10);
     glPopMatrix();
     drawOrbit(n);
 }
@@ -357,11 +398,14 @@ void display(void)
 {
   int i;
 
+  calculate_lookpoint();
   glClear(GL_COLOR_BUFFER_BIT);
 
   /* set the camera */
   setView();
-  drawAxis();
+
+  if (draw_axis)
+    drawAxis();
 
   if (draw_starfield)
     drawStarfield();
@@ -388,14 +432,82 @@ void reshape(int w, int h)
 
 /*****************************/
 
+GLfloat dX (GLdouble angle, GLdouble distance) {
+   return distance * sin(angle * DEG_TO_RAD);
+}
+
+GLfloat dZ (GLdouble angle, GLdouble distance) {
+   return distance * cos(angle * DEG_TO_RAD);
+}
+
 void keyboard(unsigned char key, int x, int y)
 {
-  switch (key)
-  {
-    case 27:  /* Escape key */
-      exit(0);
-  }
+    switch (key)
+    {
+        case 27:  /* Escape key */
+          exit(0);
+        break;
+
+        case 'a':
+          draw_axis = !draw_axis;
+        break;
+    }
+
+    if (current_view != SHIP_VIEW)
+        return;
+
+    switch(key) {
+        case ',':  /* Left */
+           eyex += dX(lon + 90, SHIP_SPEED);
+           eyez += dZ(lon + 90, SHIP_SPEED);
+         break;
+
+         case '.':  /* Right */
+           eyex -= dX(lon + 90, SHIP_SPEED);
+           eyez -= dZ(lon + 90, SHIP_SPEED);
+         break;
+    }
+
 }
+
+void cursor_keys(int key, int x, int y) {
+  if (current_view != SHIP_VIEW)
+    return;
+
+  switch (key) {
+    case GLUT_KEY_LEFT:
+      lon += TURN_ANGLE;
+    break;
+
+    case GLUT_KEY_RIGHT:
+      lon -= TURN_ANGLE;
+    break;
+
+    case GLUT_KEY_PAGE_UP:
+      if (lat + TURN_ANGLE < 90)
+         lat += TURN_ANGLE;
+    break;
+
+    case GLUT_KEY_PAGE_DOWN:
+      if (lat - TURN_ANGLE > -90)
+      lat -= TURN_ANGLE;
+    break;
+
+    case GLUT_KEY_HOME:
+      lat = 0;
+    break;
+
+    case GLUT_KEY_UP:
+      eyex += dX(lon, SHIP_SPEED);
+      eyez += dZ(lon, SHIP_SPEED);
+    break;
+
+    case GLUT_KEY_DOWN:
+      eyex -= dX(lon, SHIP_SPEED);
+      eyez -= dZ(lon, SHIP_SPEED);
+    break;
+  }
+} // cursor_keys()
 
 /*****************************/
 
@@ -409,6 +521,7 @@ int main(int argc, char** argv)
   glutDisplayFunc (display);
   glutReshapeFunc (reshape);
   glutKeyboardFunc (keyboard);
+  glutSpecialFunc (cursor_keys);
   glutIdleFunc (animate);
   readSystem();
   glutMainLoop ();
