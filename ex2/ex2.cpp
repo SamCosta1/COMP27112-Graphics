@@ -23,7 +23,7 @@ Authors:     Toby Howard
 #define PI 3.14159
 #define DEG_TO_RAD 0.017453293
 #define ORBIT_POLY_SIDES 40
-#define TIME_STEP 0.5   /* days per frame */
+#define TIME_STEP 0.1   /* days per frame */
 #define SHIP_SPEED  5000000
 #define TURN_ANGLE 4.0
 
@@ -87,13 +87,16 @@ void drawStarfield (void) {
 }
 
 void calculate_lookpoint(void) {
-   GLfloat dirx = cos(lat * DEG_TO_RAD) * sin(lon * DEG_TO_RAD);
-   GLfloat diry = sin(lat * DEG_TO_RAD);
-   GLfloat dirz = cos(lat * DEG_TO_RAD) * cos(lon * DEG_TO_RAD);
-/*
+   float dirx = cos(lat * DEG_TO_RAD) * sin(lon * DEG_TO_RAD) * 1000;
+   float diry = sin(lat * DEG_TO_RAD) * 1000;
+   float dirz = cos(lat * DEG_TO_RAD) * cos(lon * DEG_TO_RAD) * 1000;
+
    centerx = eyex + dirx;
    centery = eyey + diry;
-   centerz = eyez + dirz;*/
+   centerz = eyez + dirz;
+printf("dirx = %f : diry = %f : dirz =  %f: eyez = %f: centerz: %f\n", dirx, diry, dirz, eyez, centerz);
+
+
 }
 
 /*****************************/
@@ -176,6 +179,7 @@ void drawAxis() {
 void setView (void) {
   glMatrixMode(GL_MODELVIEW);
   glLoadIdentity();
+
   earth_view = false;
   switch (current_view) {
   case TOP_VIEW:
@@ -190,13 +194,14 @@ void setView (void) {
 
     break;
   case SHIP_VIEW:
+  calculate_lookpoint();
    printf("%f %f %f\n%f %f %f\n%f %f %f\n\n",eyex, eyey, eyez,
                 centerx,  centery, centerz,
                 upx, upy, upz);fflush(stdout);
      gluLookAt (eyex, eyey, eyez,
                 centerx,  centery, centerz,
                 upx, upy, upz);/*
- gluLookAt (315193193.291, 105193193.291, 315193193.291,
+ gluLookAt (0, 105193193.291, 315193193.291,
                0.0, 0.0, 0.0,
                0.0, 1.0, 0.0);*/
 
@@ -263,14 +268,15 @@ void init(void)
   draw_axis = false;
 
   // Default values for spaceship view
-  eyex = eyez =  315193193.291;
-  eyey = 105193193.0;
+  eyex = 0.0;
+  eyey = 0;
+  eyez = -305193193.0;
   centerx = centery = centerz = 0;
   upx = upz = 0;
   upy = 1;
 
-  lat = -45.0;
-  lon = -45.0;
+  lat = 0.0;
+  lon = 0.0;
 }
 
 /*****************************/
@@ -345,20 +351,17 @@ void tiltAndDrawAxis(int n) {
     GLfloat x = sin(angle * DEG_TO_RAD);
     GLfloat y = cos(angle * DEG_TO_RAD);
 
+    glRotatef(bodies[n].spin, x, -y, 0);
 
-    glRotatef(bodies[n].spin, x, y, 0);
-
-    glLineWidth(1.5);
+    glLineWidth(2);
     glBegin(GL_LINES);
         glColor3f(0.5, 0.5, 0.0);
-        glVertex3f(bodies[n].radius *  1.1 * x, bodies[n].radius *  1.1 * y, 0.0);
-        glVertex3f(bodies[n].radius *  -1.1 * x, bodies[n].radius *  -1.1 * y,  0.0);
+        glVertex3f(bodies[n].radius *  1.4 * x, bodies[n].radius *  1.4 * y, 0.0);
+        glVertex3f(bodies[n].radius *  -1.4 * x, bodies[n].radius *  -1.4 * y,  0.0);
     glEnd();
 }
 
-
 void drawBody(int n) {
-
 
     glPushMatrix();
         float x = getBodyX(n, bodies[n].orbit);
@@ -398,7 +401,6 @@ void display(void)
 {
   int i;
 
-  calculate_lookpoint();
   glClear(GL_COLOR_BUFFER_BIT);
 
   /* set the camera */
@@ -433,6 +435,10 @@ void reshape(int w, int h)
 /*****************************/
 
 GLfloat dX (GLdouble angle, GLdouble distance) {
+   return distance * sin(angle * DEG_TO_RAD);
+}
+
+GLfloat dY (GLdouble angle, GLdouble distance) {
    return distance * sin(angle * DEG_TO_RAD);
 }
 
@@ -499,11 +505,13 @@ void cursor_keys(int key, int x, int y) {
 
     case GLUT_KEY_UP:
       eyex += dX(lon, SHIP_SPEED);
+      eyey += dY(lat, SHIP_SPEED);
       eyez += dZ(lon, SHIP_SPEED);
     break;
 
     case GLUT_KEY_DOWN:
       eyex -= dX(lon, SHIP_SPEED);
+      eyey -= dY(lat, SHIP_SPEED);
       eyez -= dZ(lon, SHIP_SPEED);
     break;
   }
