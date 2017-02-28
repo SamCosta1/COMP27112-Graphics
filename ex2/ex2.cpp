@@ -23,7 +23,7 @@ Authors:     Toby Howard
 #define PI 3.14159
 #define DEG_TO_RAD 0.017453293
 #define ORBIT_POLY_SIDES 40
-#define TIME_STEP 0.1   /* days per frame */
+#define TIME_STEP 0.01   /* days per frame */
 #define SHIP_SPEED  5000000
 #define TURN_ANGLE 4.0
 
@@ -190,16 +190,10 @@ void setView (void) {
 
     break;
   case SHIP_VIEW:
-  calculate_lookpoint();
-   printf("%f %f %f\n%f %f %f\n%f %f %f\n\n",eyex, eyey, eyez,
-                centerx,  centery, centerz,
-                upx, upy, upz);fflush(stdout);
+     calculate_lookpoint();
      gluLookAt (eyex, eyey, eyez,
                 centerx,  centery, centerz,
-                upx, upy, upz);/*
- gluLookAt (0, 105193193.291, 315193193.291,
-               0.0, 0.0, 0.0,
-               0.0, 1.0, 0.0);*/
+                upx, upy, upz);
 
     break;
   case EARTH_VIEW:
@@ -265,13 +259,13 @@ void init(void)
 
   // Default values for spaceship view
   eyex = 0.0;
-  eyey = 0;
+  eyey = 305193193;
   eyez = -305193193.0;
   centerx = centery = centerz = 0;
   upx = upz = 0;
   upy = 1;
 
-  lat = 0.0;
+  lat = -45.0;
   lon = 0.0;
 }
 
@@ -360,17 +354,15 @@ void tiltAndDrawAxis(int n) {
     glEnd();
 }
 
-void drawBody(int n) {
 
+void drawBody(int n) {
     glPushMatrix();
         float x = getBodyX(n, bodies[n].orbit);
-        float y = getBodyY(n, bodies[n].orbit);
         float z = getBodyZ(n, bodies[n].orbit);
 
         int parent = bodies[n].orbits_body;
 
         float parentX = getBodyX(parent, bodies[parent].orbit);
-        float parentY = getBodyY(parent, bodies[parent].orbit);
         float parentZ = getBodyZ(parent, bodies[parent].orbit);
 
         if (bodies[n].orbits_body != 0) {
