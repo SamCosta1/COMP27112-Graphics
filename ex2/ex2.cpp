@@ -94,9 +94,6 @@ void calculate_lookpoint(void) {
    centerx = eyex + dirx;
    centery = eyey + diry;
    centerz = eyez + dirz;
-printf("dirx = %f : diry = %f : dirz =  %f: eyez = %f: centerz: %f\n", dirx, diry, dirz, eyez, centerz);
-
-
 }
 
 /*****************************/
@@ -132,8 +129,7 @@ void readSystem(void) {
     bodies[i].orbit= myRand() * 360.0; /* Start each body's orbit at a
                                           random angle */
     bodies[i].radius*= 1000.0; /* Magnify the radii to make them visible */
-    printf("Name: %9s : Orbital Tilt: %f: Axis Tilt: %f\n", bodies[i].name, bodies[i].orbital_tilt, bodies[i].axis_tilt);
-  }
+ }
   fclose(f);
 
 }
@@ -301,7 +297,10 @@ float getBodyX(int n, float angle) {
 }
 
 float getBodyY(int n, float angle) {
-    return getBodyX(n, angle) * tan(bodies[n].orbital_tilt * DEG_TO_RAD);
+    float orbitalTilt = bodies[n].orbits_body == 0 ?
+                            bodies[n].orbital_tilt :
+                            bodies[bodies[n].orbits_body].orbital_tilt;
+    return getBodyX(n, angle) * tan(orbitalTilt * DEG_TO_RAD);
 }
 
 float getBodyZ(int n, float angle) {
@@ -351,7 +350,7 @@ void tiltAndDrawAxis(int n) {
     GLfloat x = sin(angle * DEG_TO_RAD);
     GLfloat y = cos(angle * DEG_TO_RAD);
 
-    glRotatef(bodies[n].spin, x, -y, 0);
+    glRotatef(bodies[n].spin, x, y, 0);
 
     glLineWidth(2);
     glBegin(GL_LINES);
@@ -375,22 +374,22 @@ void drawBody(int n) {
         float parentZ = getBodyZ(parent, bodies[parent].orbit);
 
         if (bodies[n].orbits_body != 0) {
-            glTranslatef(x, 1, z);
-        }
-
-        glRotatef(bodies[n].orbital_tilt, 0, 0, 1);
+            glRotatef(bodies[parent].orbital_tilt, 0, 0, 1);
+            glTranslatef(x, 0, z);
+        } else
+            glRotatef(bodies[n].orbital_tilt, 0, 0, 1);
 
         if (bodies[n].orbits_body == 0)
-            glTranslatef(x, 1, z);
-        else
-            glTranslatef(parentX, parentY, parentZ);
+            glTranslatef(x, 0, z);
+
+        glTranslatef(parentX, 0, parentZ);
 
         tiltAndDrawAxis(n);
         glRotatef(90.0, 1.0, 0, 0);
         glScalef(bodies[n].radius, bodies[n].radius, bodies[n].radius);
 
         glColor3f(bodies[n].r, bodies[n].g, bodies[n].b);
-        glutWireSphere(1.0, 10, 10);
+        glutSolidSphere(1.0, 10, 10);
     glPopMatrix();
     drawOrbit(n);
 }
