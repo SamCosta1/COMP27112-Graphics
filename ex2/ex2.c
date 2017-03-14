@@ -23,7 +23,9 @@ Authors:     Toby Howard
 #define PI 3.14159
 #define DEG_TO_RAD 0.017453293
 #define ORBIT_POLY_SIDES 40
-#define TIME_STEP 0.5   /* days per frame */
+#define TIME_STEP 0.01   /* days per frame */
+#define SHIP_SPEED  5000000
+#define TURN_ANGLE 4.0
 
 typedef struct {
   char    name[20];       /* name */
@@ -37,11 +39,22 @@ typedef struct {
   GLint   orbits_body;    /* identifier of parent body */
   GLfloat spin;           /* current spin value (deg) */
   GLfloat orbit;          /* current orbit value (deg) */
+
+
  } body;
 
 body  bodies[MAX_BODIES];
-int   numBodies, current_view, draw_labels, draw_orbits, draw_starfield;
+int   numBodies, current_view;
+bool draw_labels, draw_orbits, draw_starfield, earth_view, draw_axis;
 float date;
+
+/* Coordinate info for spaceship view where user can move around */
+GLdouble lat,     lon;              /* View angles (degrees)    */
+GLdouble mlat,    mlon;             /* Mouse look offset angles */
+GLfloat  eyex,    eyey,    eyez;    /* Eye point                */
+GLfloat  centerx, centery, centerz; /* Look point               */
+GLfloat  upx,     upy,     upz;     /* View up vector           */
+
 
 /*****************************/
 
@@ -53,21 +66,36 @@ float myRand (void) {
 /*****************************/
 
 float randomInRange(float rand) {
-    float cubeWidth = 600000000;
+    float cubeWidth = 800000000;
 
     // Shifting result to get -ive and +ive values
-    return (rand * cubeWidth) - cubeWidth;
+    return (rand * cubeWidth) - cubeWidth / 2;
+}
+
+int starField[3001];
+
+void initStarField() {
+    for (int i = 0; i < 3000; i++)
+        starField[i] = (int)randomInRange(myRand());
 }
 
 void drawStarfield (void) {
+
     glColor3f(1.0, 1.0, 1.0);
     glBegin(GL_POINTS);
-        int i;
-        for (i = 0; i < 1000; i++);
-        glVertex3f(randomInRange(myRand()),
-                   randomInRange(myRand()),
-                   randomInRange(myRand()));
+        for (int i = 0; i < 1000; i+=3)
+            glVertex3f(starField[i], starField[i+1], starField[i+2]);
     glEnd();
+}
+
+void calculate_lookpoint(void) {
+   float dirx = cos(lat * DEG_TO_RAD) * sin(lon * DEG_TO_RAD) * 1000;
+   float diry = sin(lat * DEG_TO_RAD) * 1000;
+   float dirz = cos(lat * DEG_TO_RAD) * cos(lon * DEG_TO_RAD) * 1000;
+
+   centerx = eyex + dirx;
+   centery = eyey + diry;
+   centerz = eyez + dirz;
 }
 
 /*****************************/
@@ -103,8 +131,9 @@ void readSystem(void) {
     bodies[i].orbit= myRand() * 360.0; /* Start each body's orbit at a
                                           random angle */
     bodies[i].radius*= 1000.0; /* Magnify the radii to make them visible */
-  }
+ }
   fclose(f);
+
 }
 
 /*****************************/
@@ -119,7 +148,7 @@ void drawString (void *font, float x, float y, char *str)
 /*****************************/
 
 void drawAxis() {
-    GLfloat endPoint = 1000000000;
+    GLfloat endPoint = 3000000000;
 
 
     glLineWidth(1.0);
@@ -144,23 +173,38 @@ void drawAxis() {
     glEnd();
 }
 
+
 void setView (void) {
   glMatrixMode(GL_MODELVIEW);
   glLoadIdentity();
+
+  earth_view = false;
   switch (current_view) {
   case TOP_VIEW:
-    gluLookAt (0.0, 500000000.0, 0.0,
+    gluLookAt (0.0, 600000000.0, 0.0,
                0.0, 0.0, 0.0,
                0.0, 0.0, -1.0);
     break;
   case ECLIPTIC_VIEW:
-    /* This is for you to complete. */
+    gluLookAt (0.0, 0.0, 400000000.0,
+               0.0, 0.0, 0.0,
+               0.0, 1.0, 0.0);
+
     break;
   case SHIP_VIEW:
-    /* This is for you to complete. */
+     calculate_lookpoint();
+     gluLookAt (eyex, eyey, eyez,
+                centerx,  centery, centerz,
+                upx, upy, upz);
+
     break;
   case EARTH_VIEW:
-    /* This is for you to complete. */
+    float x = cos(bodies[3].orbit * DEG_TO_RAD) * bodies[3].orbital_radius;
+    float y = x * tan(bodies[3].orbital_tilt * DEG_TO_RAD) + 1.1*bodies[3].radius;
+    float z = sin(bodies[3].orbit * DEG_TO_RAD) * bodies[3].orbital_radius;
+    gluLookAt(x  , y  , z ,
+              0.0, 0.0, 0.0,
+              0.0, 1.0, 0.0);
     break;
   }
 }
@@ -191,6 +235,7 @@ void menu (int menuentry) {
 
 void init(void)
 {
+  initStarField();
   /* Define background colour */
   glClearColor(0.0, 0.0, 0.0, 0.0);
 
@@ -207,10 +252,23 @@ void init(void)
   glutAddMenuEntry ("Quit", 8);
   glutAttachMenu (GLUT_RIGHT_BUTTON);
 
-  current_view= TOP_VIEW;
-  draw_labels= 1;
-  draw_orbits= 1;
-  draw_starfield= 1;
+  current_view = TOP_VIEW;
+  draw_labels = true;
+  draw_orbits = true;
+  draw_starfield = true;
+  earth_view = false;
+  draw_axis = false;
+
+  // Default values for spaceship view
+  eyex = 0.0;
+  eyey = 305193193;
+  eyez = -305193193.0;
+  centerx = centery = centerz = 0;
+  upx = upz = 0;
+  upy = 1;
+
+  lat = -45.0;
+  lon = 0.0;
 }
 
 /*****************************/
@@ -230,16 +288,52 @@ void animate(void)
 
 /*****************************/
 
-void drawOrbit (int n)
-{ /* Draws a polygon to approximate the circular
-     orbit of body "n" */
-
-    /* This is for you to complete. */
+float getBodyX(int n, float angle) {
+    return cos(angle * DEG_TO_RAD) * bodies[n].orbital_radius;
 }
+
+float getBodyY(int n, float angle) {
+    float orbitalTilt = bodies[n].orbits_body == 0 ?
+                            bodies[n].orbital_tilt :
+                            bodies[bodies[n].orbits_body].orbital_tilt;
+    return getBodyX(n, angle) * tan(orbitalTilt * DEG_TO_RAD);
+}
+
+float getBodyZ(int n, float angle) {
+    return sin(angle * DEG_TO_RAD) * bodies[n].orbital_radius;
+}
+void drawOrbit (int n) {
+    if (!draw_orbits)
+        return;
+    int parent = bodies[n].orbits_body;
+
+    int noVerticies = ORBIT_POLY_SIDES;
+    float theta = 360 / noVerticies;
+
+    glColor3f(bodies[n].r, bodies[n].g, bodies[n].b);
+    glBegin(GL_LINE_LOOP);
+
+    for (int i = 0; i < noVerticies; i++) {
+        float x = getBodyX(n, i * theta);
+        float y = getBodyY(n, i * theta);
+        float z = getBodyZ(n, i * theta);
+
+        if (bodies[n].orbits_body != 0) {
+            x += getBodyX(parent, bodies[parent].orbit);
+            y += getBodyY(parent, bodies[parent].orbit);
+            z += getBodyZ(parent, bodies[parent].orbit);
+        }
+        glVertex3f(x, y , z);
+    }
+    glEnd();
+}
+
 
 /*****************************/
 
 void drawLabel(int n) {
+    if (!draw_labels)
+        return;
      /* Draws the name of body "n" */
 
     /* This is for you to complete. */
@@ -247,15 +341,51 @@ void drawLabel(int n) {
 
 /*****************************/
 
+void tiltAndDrawAxis(int n) {
+    float angle = bodies[n].axis_tilt;
+    GLfloat x = sin(angle * DEG_TO_RAD);
+    GLfloat y = cos(angle * DEG_TO_RAD);
+
+    glRotatef(bodies[n].spin, x, y, 0);
+
+    glLineWidth(2);
+    glBegin(GL_LINES);
+        glColor3f(0.5, 0.5, 0.0);
+        glVertex3f(bodies[n].radius *  1.4 * x, bodies[n].radius *  1.4 * y, 0.0);
+        glVertex3f(bodies[n].radius *  -1.4 * x, bodies[n].radius *  -1.4 * y,  0.0);
+    glEnd();
+}
+
+
 void drawBody(int n) {
-    if (n!=0)
-        return;
     glPushMatrix();
-        glRotatef(bodies[0].spin, 0, 0, 0);
-        glScalef(bodies[0].radius, bodies[0].radius, bodies[0].radius);
-        glutSolidSphere(1.0, 1000, 1000);
-        (&(bodies[0]))->spin++;
+        float x = getBodyX(n, bodies[n].orbit);
+        float z = getBodyZ(n, bodies[n].orbit);
+
+        int parent = bodies[n].orbits_body;
+
+        float parentX = getBodyX(parent, bodies[parent].orbit);
+        float parentZ = getBodyZ(parent, bodies[parent].orbit);
+
+        if (bodies[n].orbits_body != 0) {
+            glRotatef(bodies[parent].orbital_tilt, 0, 0, 1);
+            glTranslatef(x, 0, z);
+        } else
+            glRotatef(bodies[n].orbital_tilt, 0, 0, 1);
+
+        if (bodies[n].orbits_body == 0)
+            glTranslatef(x, 0, z);
+
+        glTranslatef(parentX, 0, parentZ);
+
+        tiltAndDrawAxis(n);
+        glRotatef(90.0, 1.0, 0, 0);
+        glScalef(bodies[n].radius, bodies[n].radius, bodies[n].radius);
+
+        glColor3f(bodies[n].r, bodies[n].g, bodies[n].b);
+        glutWireSphere(1.0, 10, 10);
     glPopMatrix();
+    drawOrbit(n);
 }
 
 /*****************************/
@@ -268,9 +398,9 @@ void display(void)
 
   /* set the camera */
   setView();
-  drawAxis();
 
-
+  if (draw_axis)
+    drawAxis();
 
   if (draw_starfield)
     drawStarfield();
@@ -297,14 +427,88 @@ void reshape(int w, int h)
 
 /*****************************/
 
+GLfloat dX (GLdouble angle, GLdouble distance) {
+   return distance * sin(angle * DEG_TO_RAD);
+}
+
+GLfloat dY (GLdouble angle, GLdouble distance) {
+   return distance * sin(angle * DEG_TO_RAD);
+}
+
+GLfloat dZ (GLdouble angle, GLdouble distance) {
+   return distance * cos(angle * DEG_TO_RAD);
+}
+
 void keyboard(unsigned char key, int x, int y)
 {
-  switch (key)
-  {
-    case 27:  /* Escape key */
-      exit(0);
-  }
+    switch (key)
+    {
+        case 27:  /* Escape key */
+          exit(0);
+        break;
+
+        case 'a':
+          draw_axis = !draw_axis;
+        break;
+    }
+
+    if (current_view != SHIP_VIEW)
+        return;
+
+    switch(key) {
+        case ',':  /* Left */
+           eyex += dX(lon + 90, SHIP_SPEED);
+           eyez += dZ(lon + 90, SHIP_SPEED);
+         break;
+
+         case '.':  /* Right */
+           eyex -= dX(lon + 90, SHIP_SPEED);
+           eyez -= dZ(lon + 90, SHIP_SPEED);
+         break;
+    }
+
 }
+
+void cursor_keys(int key, int x, int y) {
+  if (current_view != SHIP_VIEW)
+    return;
+
+  switch (key) {
+    case GLUT_KEY_LEFT:
+      lon += TURN_ANGLE;
+    break;
+
+    case GLUT_KEY_RIGHT:
+      lon -= TURN_ANGLE;
+    break;
+
+    case GLUT_KEY_PAGE_UP:
+      if (lat + TURN_ANGLE < 90)
+         lat += TURN_ANGLE;
+    break;
+
+    case GLUT_KEY_PAGE_DOWN:
+      if (lat - TURN_ANGLE > -90)
+      lat -= TURN_ANGLE;
+    break;
+
+    case GLUT_KEY_HOME:
+      lat = 0;
+    break;
+
+    case GLUT_KEY_UP:
+      eyex += dX(lon, SHIP_SPEED);
+      eyey += dY(lat, SHIP_SPEED);
+      eyez += dZ(lon, SHIP_SPEED);
+    break;
+
+    case GLUT_KEY_DOWN:
+      eyex -= dX(lon, SHIP_SPEED);
+      eyey -= dY(lat, SHIP_SPEED);
+      eyez -= dZ(lon, SHIP_SPEED);
+    break;
+  }
+} // cursor_keys()
 
 /*****************************/
 
@@ -318,6 +522,7 @@ int main(int argc, char** argv)
   glutDisplayFunc (display);
   glutReshapeFunc (reshape);
   glutKeyboardFunc (keyboard);
+  glutSpecialFunc (cursor_keys);
   glutIdleFunc (animate);
   readSystem();
   glutMainLoop ();

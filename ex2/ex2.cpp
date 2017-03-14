@@ -23,7 +23,7 @@ Authors:     Toby Howard
 #define PI 3.14159
 #define DEG_TO_RAD 0.017453293
 #define ORBIT_POLY_SIDES 40
-#define TIME_STEP 0.01   /* days per frame */
+#define TIME_STEP 0.02 /* days per frame */
 #define SHIP_SPEED  5000000
 #define TURN_ANGLE 4.0
 
@@ -39,6 +39,8 @@ typedef struct {
   GLint   orbits_body;    /* identifier of parent body */
   GLfloat spin;           /* current spin value (deg) */
   GLfloat orbit;          /* current orbit value (deg) */
+
+
  } body;
 
 body  bodies[MAX_BODIES];
@@ -381,7 +383,7 @@ void drawBody(int n) {
         glScalef(bodies[n].radius, bodies[n].radius, bodies[n].radius);
 
         glColor3f(bodies[n].r, bodies[n].g, bodies[n].b);
-        glutSolidSphere(1.0, 10, 10);
+        glutWireSphere(1.0, 10, 10);
     glPopMatrix();
     drawOrbit(n);
 }
@@ -513,7 +515,8 @@ void cursor_keys(int key, int x, int y) {
 int main(int argc, char** argv)
 {
   glutInit (&argc, argv);
-  glutInitDisplayMode (GLUT_DOUBLE | GLUT_RGB);
+  glutInitDisplayMode (GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
+  glEnable (GL_DEPTH_TEST);
   glutCreateWindow ("COMP27112 Exercise 2");
   glutFullScreen();
   init ();

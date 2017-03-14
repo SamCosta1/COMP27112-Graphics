@@ -69,15 +69,15 @@ void initialise(void) {
    glEnable(GL_LIGHT0);
    glEnable(GL_LIGHT1);
    glEnable(GL_DEPTH_TEST);
-   glShadeModel(GL_SMOOTH);
+   glShadeModel(GL_FLAT);
 
 
 }
 
 void display(void) {
-   glClearColor(1.0, 1.0, 1.0, 0.0);
+   glClearColor(0.0, 0.0, 0.2, 0.0);
    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-/*
+
 // define material properties
    glMaterialfv(GL_FRONT, GL_SPECULAR,  matSpecular);
    glMaterialfv(GL_FRONT, GL_SHININESS, matShininess);
@@ -94,7 +94,7 @@ void display(void) {
   glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
   glEnable(GL_TEXTURE_2D);
 
-
+/*
  // draw the teapot
    glPushMatrix();
       glRotatef(xRotation, 1.0, 0.0, 0.0);
