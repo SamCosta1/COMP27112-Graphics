@@ -145,7 +145,7 @@ void draw_scene(void) {
         glPushMatrix();
           glTranslatef((GLfloat) x, 1.7, (GLfloat) z);
           glScalef(0.2, 3.0, 0.2);
-	  cylinder(10, 1.0);
+	  	  cylinder(10, 1.0);
         glPopMatrix();
 
         glPushMatrix();
@@ -258,7 +258,7 @@ void spin(void) {
 
   jump();
 
-  glutPostRedisplay();
+ glutPostRedisplay();
 } //spin()
 
 //////////////////////////////////////////////
