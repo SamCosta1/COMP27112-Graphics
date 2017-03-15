@@ -101,6 +101,8 @@ int main(int argc, char *argv[])
         image[i] = 255;
     else
         image[i] = 0;
+  // this is where you'll insert your code to midify the image
+
 
   write_JPEG_file(argv[2], width, height, channels, image, 95);
 
