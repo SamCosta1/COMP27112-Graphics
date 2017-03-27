@@ -131,7 +131,55 @@ int calculateThreshold(int *histogram, int width, int height) {
     return threshold - 1;
 }
 
-int main(int argc, char *argv[]){
+void medianFilter(unsigned char *image, int width, int height) {
+    
+    for (int i = 0; i < width * height; i++) {
+        int numAdded = 1;
+        int sum = 0;
+
+        sum += image[i];
+        if (i >= width) {  // One pixel up
+
+            sum += image[i - width];
+            numAdded++;
+            if (i % width != 0) { // One up, one left 
+                sum += image[i - width - 1]; 
+                numAdded++;
+            }
+            if ((i+1) % width != 0) { // One up one right
+                sum += image[i - width + 1];
+                numAdded++;
+            }
+        }
+
+        if (i % width != 0) { // One left
+            sum += image[i - 1]; 
+            numAdded++;
+        }
+
+        if ((i+1) % width != 0) { // One right        
+            sum += image[i + 1]; 
+            numAdded++;
+        }
+        if (i < (width-1) * height) {  // One pixel down
+            sum += image[i + width]; 
+            numAdded++;
+            if (i % width != 0) {  // One down, one left            
+                sum += image[i + width - 1]; 
+                numAdded++;
+            }
+            if ((i+1) % width != 0) { // One dow one right
+                sum += image[i + width + 1]; 
+                numAdded++;
+            }
+        }
+
+        image[i] = sum / numAdded;
+   
+    }
+}
+
+int main(int argc, char *argv[]) {
   if (argc < 3) {
     printf("Usage: ./ex1 image_in.jpg image_out.jpg\n");
     return 1;
@@ -145,10 +193,14 @@ int main(int argc, char *argv[]){
   generateHistogram(histogram, image, width * height);
 
   int threshold = calculateThreshold(histogram, width, height);
-  printf("threshold: %d\n", threshold);
-  for (int i = 0; i < width * height; i++)
-    image[i] = image[i] > threshold ? 255 : 0;
 
+
+  for (int i = 0; i < width * height; i++) {
+    image[i] = image[i] > threshold ? 255 : 0;
+  }
+  
+  medianFilter(image, width, height);
+  printf("threshold: %d, width: %3d, height: %3d\n", threshold, width, height);
   write_JPEG_file(argv[2], width, height, channels, image, 95);
 
   return 0;
