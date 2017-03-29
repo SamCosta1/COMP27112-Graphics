@@ -194,6 +194,7 @@ int main(int argc, char *argv[]) {
 
   int threshold = calculateThreshold(histogram, width, height);
 
+
   for (int i = 0; i < width * height; i++) {
     image[i] = image[i] > threshold ? 255 : 0;
   }
