@@ -1,6 +1,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <jpeglib.h>
+#include <vector>
+
+using namespace std;
+
 /** Read the JPEG image at `filename` as an array of bytes.
   Data is returned through the out pointers, while the return
   value indicates success or failure.
@@ -111,7 +115,6 @@ int average(int *histogram, int bottom, int top) {
     return total / noPixels;
 }
 
-
 int calculateThreshold(int *histogram, int width, int height) {
     int threshold = getLowestValue(histogram);
     int newVal = -1;
@@ -140,18 +143,6 @@ bool isLeftMostColumn(int i, int width, int height) {
 bool isRightMostColumn(int i, int width, int height) {
     return (i + 1) % width == 0;
 }
-
-typedef struct sublist {
-    unsigned char label;
-    sublist* subNext;
-} SubList;
-
-typedef struct list {
-    unsigned char label;
-    list* next;
-    sublist* subNext;
-
-} LinkedList;
 
 unsigned char* medianFilter(unsigned char *image, int width, int height) {
     unsigned char* newImg = (unsigned char *)malloc(sizeof(char) * width * height);
@@ -202,7 +193,7 @@ unsigned char* medianFilter(unsigned char *image, int width, int height) {
     return newImg;
 }
 
-void getNeighbourLabels(int *neighbourLabels, unsigned char *labelled, int width, int height, int i) {
+void getNeighbourLabels(int *neighbourLabels, int *labelled, int width, int height, int i) {
     int numLabels = 1;       
     for (int j = 0; j < 3; j++)
         neighbourLabels[j] = -1;
@@ -229,37 +220,48 @@ void getNeighbourLabels(int *neighbourLabels, unsigned char *labelled, int width
     
 }
 
+int min(int *neighbourLabels) {
+    int lowest = -1;
+    for (int i = 0; i < 3; i++) {
+        if (lowest < neighbourLabels[i] && neighbourLabels[i] > 0)
+            lowest = neighbourLabels[i];
+    }
+    return lowest;
+}
+
+
+
 unsigned char* CCA(unsigned char* image, int width, int height) {
-    unsigned char* labelled = (unsigned char *)malloc(sizeof(char) * width * height);
+    int* labelled = (int *)malloc(sizeof(int) * width * height);
     for (int i = 0; i < width * height; i++) {
         labelled[i] = -1;
     }
     
-    int nextFreeLabel = 0;
+    int nextFreeLabel = 1;
     int index = 0;
+    vector<int *> eqTable;
+   
+    int *neighbourLabels = (int *)malloc(sizeof(int) * 3);
     for (int i = 0; i < height; i++) {
         for (int j = 0; j < width; j++) {
-            int neighbourLabels[3];
+            int* neighbourLabels = (int *)malloc(sizeof(int) * 3);
             if (image[index] == 255) {
                 labelled[index++] = 0;
                 continue;
             }
             getNeighbourLabels(neighbourLabels, labelled, width, height, index);
-                        
-            for (int k = 0; k < 3; k++) {
-                if (neighbourLabels[k] != -1) {
-                    labelled[index] = neighbourLabels[k];
-                }
-            }
+            
+            int lowest = min(neighbourLabels);
+            labelled[index] = lowest <= 0 ? nextFreeLabel++ : lowest;
 
-            if (labelled[index] == -1)
-                labelled[index] = nextFreeLabel++;
+            if (lowest > 0) 
+                eqTable.push_back(neighbourLabels);  
 
-            index++;
+            index++;        
         }
     }
 
-    return labelled;
+    return image;
 }
 
 int main(int argc, char *argv[]) {
