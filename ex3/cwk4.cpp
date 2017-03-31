@@ -1,8 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <jpeglib.h>
-
-
 /** Read the JPEG image at `filename` as an array of bytes.
   Data is returned through the out pointers, while the return
   value indicates success or failure.
@@ -29,7 +27,6 @@ read_JPEG_file(char *filename,
 
   *width = cinfo.output_width, *height = cinfo.output_height;
   *channels = cinfo.num_components;
-  // printf("width=%d height=%d c=%d\n", *width, *height, *channels);
   *image = (unsigned char *)malloc(*width * *height * *channels * sizeof(*image));
   JSAMPROW rowptr[1];
   int row_stride = *width * *channels;
@@ -90,9 +87,6 @@ void generateHistogram(int *histogram, unsigned char *image, int noPixels) {
         histogram[i] = 0;
     for (int i = 0; i < noPixels; i++) 
         histogram[image[i]]++;
-    for (int i = 0; i < 256; i++) {
-     //   printf("%3d: %d\n", i, histogram[i]);
-    }
 }
 
 int getLowestValue(int *histogram) {
@@ -131,52 +125,141 @@ int calculateThreshold(int *histogram, int width, int height) {
     return threshold - 1;
 }
 
-void medianFilter(unsigned char *image, int width, int height) {
-    
+bool isTopRow(int i, int width, int height) {
+    return i < width;
+}
+
+bool isBottomRow(int i, int width, int height) {
+    return i >= (width-1) * height;
+}
+
+bool isLeftMostColumn(int i, int width, int height) {
+    return i % width == 0;
+}
+
+bool isRightMostColumn(int i, int width, int height) {
+    return (i + 1) % width == 0;
+}
+
+typedef struct sublist {
+    unsigned char label;
+    sublist* subNext;
+} SubList;
+
+typedef struct list {
+    unsigned char label;
+    list* next;
+    sublist* subNext;
+
+} LinkedList;
+
+unsigned char* medianFilter(unsigned char *image, int width, int height) {
+    unsigned char* newImg = (unsigned char *)malloc(sizeof(char) * width * height);
     for (int i = 0; i < width * height; i++) {
         int numAdded = 1;
         int sum = 0;
 
         sum += image[i];
-        if (i >= width) {  // One pixel up
-
+        if (!isTopRow(i, width,height)) {  // One pixel up
             sum += image[i - width];
             numAdded++;
-            if (i % width != 0) { // One up, one left 
+            if (!isLeftMostColumn(i, width, height)) { // One up, one left 
                 sum += image[i - width - 1]; 
                 numAdded++;
             }
-            if ((i+1) % width != 0) { // One up one right
+            if (!isRightMostColumn(i, width,height)) { // One up one right
                 sum += image[i - width + 1];
                 numAdded++;
             }
         }
 
-        if (i % width != 0) { // One left
+        if (!isLeftMostColumn(i, width,height)) { // One left
             sum += image[i - 1]; 
             numAdded++;
         }
 
-        if ((i+1) % width != 0) { // One right        
+        if (!isRightMostColumn(i, width, height)) { // One right        
             sum += image[i + 1]; 
             numAdded++;
         }
+
         if (i < (width-1) * height) {  // One pixel down
             sum += image[i + width]; 
             numAdded++;
-            if (i % width != 0) {  // One down, one left            
+            if (!isLeftMostColumn(i, width, height)) {  // One down, one left            
                 sum += image[i + width - 1]; 
                 numAdded++;
             }
-            if ((i+1) % width != 0) { // One dow one right
+            if (!isRightMostColumn(i, width, height)) { // One dow one right
                 sum += image[i + width + 1]; 
                 numAdded++;
             }
         }
 
-        image[i] = sum / numAdded;
-    
+        newImg[i] = sum / numAdded;    
     }
+
+    return newImg;
+}
+
+void getNeighbourLabels(int *neighbourLabels, unsigned char *labelled, int width, int height, int i) {
+    int numLabels = 1;       
+    for (int j = 0; j < 3; j++)
+        neighbourLabels[j] = -1;
+
+    if (!isTopRow(i, width,height)) {  // One pixel up            
+        if (!isLeftMostColumn(i, width, height) && labelled[i - width -1] != -1)  // One up, one left 
+            neighbourLabels[numLabels++] = labelled[i - width - 1];
+        if (!isRightMostColumn(i, width,height) && labelled[i - width + 1] != -1)  // One up one right
+            neighbourLabels[numLabels++] = labelled[i - width + 1];
+    }
+
+    if (!isLeftMostColumn(i, width,height) && labelled[i - 1] != -1) // One left
+        neighbourLabels[numLabels++] = labelled[i-1];
+
+    if (!isRightMostColumn(i, width, height) && labelled[i + 1] != -1)  // One right        
+        neighbourLabels[numLabels++] = labelled[i + 1];
+/*
+    if (i < (width-1) * height) {  // One pixel down     
+        if (!isLeftMostColumn(i, width, height) && labelled[i + width - 1] != -1)   // One down, one left            
+            neighbourLabels[numLabels++] = labelled[i + width - 1];
+        if (!isRightMostColumn(i, width, height) && labelled[i + width + 1] != -1) // One dow one right
+            neighbourLabels[numLabels++] = labelled[i + width + 1];
+    }*/
+    
+}
+
+unsigned char* CCA(unsigned char* image, int width, int height) {
+    unsigned char* labelled = (unsigned char *)malloc(sizeof(char) * width * height);
+    for (int i = 0; i < width * height; i++) {
+        labelled[i] = -1;
+    }
+    
+    int nextFreeLabel = 0;
+    int index = 0;
+    for (int i = 0; i < height; i++) {
+        for (int j = 0; j < width; j++) {
+            int neighbourLabels[3];
+            if (image[index] == 255) {
+                labelled[index++] = 0;
+                continue;
+            }
+            getNeighbourLabels(neighbourLabels, labelled, width, height, index);
+                        
+            for (int k = 0; k < 3; k++) {
+                if (neighbourLabels[k] != -1) {
+                    labelled[index] = neighbourLabels[k];
+                }
+            }
+
+            if (labelled[index] == -1)
+                labelled[index] = nextFreeLabel++;
+
+            index++;
+        }
+    }
+
+    return labelled;
 }
 
 int main(int argc, char *argv[]) {
@@ -198,8 +281,10 @@ int main(int argc, char *argv[]) {
     image[i] = image[i] > threshold ? 255 : 0;
   }
   
-  medianFilter(image, width, height);
+  //image = medianFilter(image, width, height);
+  image = CCA(image, width, height);
   printf("threshold: %d, width: %3d, height: %3d\n", threshold, width, height);
+
   write_JPEG_file(argv[2], width, height, channels, image, 95);
 
   return 0;
