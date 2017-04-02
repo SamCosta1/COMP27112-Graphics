@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <jpeglib.h>
 #include <vector>
+#include <algorithm>
 
 using namespace std;
 
@@ -147,50 +148,55 @@ bool isRightMostColumn(int i, int width, int height) {
 unsigned char* medianFilter(unsigned char *image, int width, int height) {
     unsigned char* newImg = (unsigned char *)malloc(sizeof(char) * width * height);
     for (int i = 0; i < width * height; i++) {
-        int numAdded = 1;
-        int sum = 0;
+        int numAdded = 0;
+        int values[9];
 
-        sum += image[i];
+        values[numAdded++] = image[i];
         if (!isTopRow(i, width,height)) {  // One pixel up
-            sum += image[i - width];
-            numAdded++;
-            if (!isLeftMostColumn(i, width, height)) { // One up, one left 
-                sum += image[i - width - 1]; 
-                numAdded++;
-            }
-            if (!isRightMostColumn(i, width,height)) { // One up one right
-                sum += image[i - width + 1];
-                numAdded++;
-            }
+            values[numAdded++] = image[i - width];
+            
+            if (!isLeftMostColumn(i, width, height))  // One up, one left 
+                values[numAdded++] = image[i - width - 1]; 
+              
+            if (!isRightMostColumn(i, width,height))  // One up one right
+                values[numAdded++] = image[i - width + 1];
+               
         }
 
-        if (!isLeftMostColumn(i, width,height)) { // One left
-            sum += image[i - 1]; 
-            numAdded++;
-        }
+        if (!isLeftMostColumn(i, width,height))  // One left
+            values[numAdded++] = image[i - 1]; 
+          
+        
 
-        if (!isRightMostColumn(i, width, height)) { // One right        
-            sum += image[i + 1]; 
-            numAdded++;
-        }
+        if (!isRightMostColumn(i, width, height))  // One right        
+            values[numAdded++] = image[i + 1]; 
 
         if (i < (width-1) * height) {  // One pixel down
-            sum += image[i + width]; 
-            numAdded++;
-            if (!isLeftMostColumn(i, width, height)) {  // One down, one left            
-                sum += image[i + width - 1]; 
-                numAdded++;
-            }
-            if (!isRightMostColumn(i, width, height)) { // One dow one right
-                sum += image[i + width + 1]; 
-                numAdded++;
-            }
+            values[numAdded++] = image[i + width]; 
+            
+            if (!isLeftMostColumn(i, width, height))   // One down, one left            
+                values[numAdded++] = image[i + width - 1]; 
+            
+            
+            if (!isRightMostColumn(i, width, height))  // One dow one right
+                values[numAdded++] = image[i + width + 1]; 
+               
         }
-
-        newImg[i] = sum / numAdded;    
+        
+        std::sort(values, values+numAdded);        
+        newImg[i] = numAdded % 2 == 0 ? (values[numAdded / 2] + values[(numAdded / 2) + 1]) / 2
+                                      : values[numAdded / 2]; 
+        
     }
 
     return newImg;
+}
+
+unsigned char* toCharArray(int* labelled, int size) {
+    unsigned char *array = (unsigned char *)malloc(size * sizeof(unsigned char *));
+    for (int i = 0; i < size; i++)
+        array[i] = labelled[i];
+    return array;
 }
 
 void getNeighbourLabels(int *neighbourLabels, int *labelled, int width, int height, int i) {
@@ -199,25 +205,17 @@ void getNeighbourLabels(int *neighbourLabels, int *labelled, int width, int heig
         neighbourLabels[j] = -1;
 
     if (!isTopRow(i, width,height)) {  // One pixel up            
+        if (labelled[i - 1] != -1)
+            neighbourLabels[numLabels++] = labelled[i - width];
         if (!isLeftMostColumn(i, width, height) && labelled[i - width -1] != -1)  // One up, one left 
             neighbourLabels[numLabels++] = labelled[i - width - 1];
+        
         if (!isRightMostColumn(i, width,height) && labelled[i - width + 1] != -1)  // One up one right
             neighbourLabels[numLabels++] = labelled[i - width + 1];
     }
 
     if (!isLeftMostColumn(i, width,height) && labelled[i - 1] != -1) // One left
         neighbourLabels[numLabels++] = labelled[i-1];
-
-    if (!isRightMostColumn(i, width, height) && labelled[i + 1] != -1)  // One right        
-        neighbourLabels[numLabels++] = labelled[i + 1];
-/*
-    if (i < (width-1) * height) {  // One pixel down     
-        if (!isLeftMostColumn(i, width, height) && labelled[i + width - 1] != -1)   // One down, one left            
-            neighbourLabels[numLabels++] = labelled[i + width - 1];
-        if (!isRightMostColumn(i, width, height) && labelled[i + width + 1] != -1) // One dow one right
-            neighbourLabels[numLabels++] = labelled[i + width + 1];
-    }*/
-    
 }
 
 int min(int *neighbourLabels) {
@@ -229,7 +227,34 @@ int min(int *neighbourLabels) {
     return lowest;
 }
 
+void addAll(vector<int>* vec, int *labels, int thisOne) {
+    for (int k = 0; k < 3; k++) {  
+        if (labels[k] != -1 && thisOne != labels[k]) {
+            vec->push_back(labels[k]);
+        }
+    }
+}
 
+vector<vector<int> > eqTable;
+
+void addToEqTable(int *neighbourLabels) {
+    for (int i = 0; i < eqTable.size(); i++) {
+        vector<int>* thisOne = &eqTable[i];
+        for (int j = 0; j < thisOne->size(); j++)
+            for (int k = 0; k < 3; k++) 
+                if (thisOne->at(j) == neighbourLabels[k]) {
+                    addAll(thisOne, neighbourLabels, thisOne->at(j));
+                    return;
+                }           
+    }
+
+    vector<int> newOne;
+    addAll(&newOne, neighbourLabels, -1);
+
+    eqTable.push_back(newOne);
+
+    
+}
 
 unsigned char* CCA(unsigned char* image, int width, int height) {
     int* labelled = (int *)malloc(sizeof(int) * width * height);
@@ -239,7 +264,6 @@ unsigned char* CCA(unsigned char* image, int width, int height) {
     
     int nextFreeLabel = 1;
     int index = 0;
-    vector<int *> eqTable;
    
     int *neighbourLabels = (int *)malloc(sizeof(int) * 3);
     for (int i = 0; i < height; i++) {
@@ -253,15 +277,16 @@ unsigned char* CCA(unsigned char* image, int width, int height) {
             
             int lowest = min(neighbourLabels);
             labelled[index] = lowest <= 0 ? nextFreeLabel++ : lowest;
-
+            
             if (lowest > 0) 
-                eqTable.push_back(neighbourLabels);  
+                addToEqTable(neighbourLabels);  
 
             index++;        
         }
     }
 
-    return image;
+    
+    return toCharArray(labelled, height * width);
 }
 
 int main(int argc, char *argv[]) {
@@ -283,8 +308,8 @@ int main(int argc, char *argv[]) {
     image[i] = image[i] > threshold ? 255 : 0;
   }
   
-  //image = medianFilter(image, width, height);
-  image = CCA(image, width, height);
+  image = medianFilter(image, width, height);
+  //image = CCA(image, width, height);
   printf("threshold: %d, width: %3d, height: %3d\n", threshold, width, height);
 
   write_JPEG_file(argv[2], width, height, channels, image, 95);
