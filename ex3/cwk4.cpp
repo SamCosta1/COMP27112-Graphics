@@ -146,6 +146,56 @@ bool isRightMostColumn(int i, int width, int height) {
     return (i + 1) % width == 0;
 }
 
+
+unsigned char* blurFilter(unsigned char *image, int width, int height) {
+    unsigned char* newImg = (unsigned char *)malloc(sizeof(char) * width * height);
+    for (int i = 0; i < width * height; i++) {
+        int numAdded = 1;
+        int sum = 0;
+
+        sum += image[i];
+        if (!isTopRow(i, width,height)) {  // One pixel up
+            sum += image[i - width];
+            numAdded++;
+            if (!isLeftMostColumn(i, width, height)) { // One up, one left 
+                sum += image[i - width - 1]; 
+                numAdded++;
+            }
+            if (!isRightMostColumn(i, width,height)) { // One up one right
+                sum += image[i - width + 1];
+                numAdded++;
+            }
+        }
+
+        if (!isLeftMostColumn(i, width,height)) { // One left
+            sum += image[i - 1]; 
+            numAdded++;
+        }
+
+        if (!isRightMostColumn(i, width, height)) { // One right        
+            sum += image[i + 1]; 
+            numAdded++;
+        }
+
+        if (i < (width-1) * height) {  // One pixel down
+            sum += image[i + width]; 
+            numAdded++;
+            if (!isLeftMostColumn(i, width, height)) {  // One down, one left            
+                sum += image[i + width - 1]; 
+                numAdded++;
+            }
+            if (!isRightMostColumn(i, width, height)) { // One dow one right
+                sum += image[i + width + 1]; 
+                numAdded++;
+            }
+        }
+
+        newImg[i] = sum / numAdded;    
+    }
+
+    return newImg;
+}
+
 unsigned char* medianFilter(unsigned char *image, int width, int height) {
     unsigned char* newImg = (unsigned char *)malloc(sizeof(char) * width * height);
     for (int i = 0; i < width * height; i++) {
@@ -262,16 +312,23 @@ void addToEqTable(int * v) {
         eqTable.insert(newOne);  
 }
 
+void adjustContrast(unsigned char *image, int size, double multiplier) {
+    for (int i = 0; i < size; i++)
+        image[i] = image[i] * multiplier;
+}
+
 void relabel(int *labelled, int size) {
-    int index = 0;
     for (int i = 0; i < size; i++) {
+        int index = 0;
         for (set<set<int> >::iterator it = eqTable.begin(); it != eqTable.end(); ++it) {
             set<int> s = *it;
 
             if (contains(&s, labelled[i])) {
                 labelled[i] = index;
+                printf("%d\n", labelled[i]);
                 continue;
             }
+            
             index++;
 
         }
@@ -303,13 +360,13 @@ void refactor() {
     }
 
     
-
+/*
     for (set<set<int> >::iterator it = eqTable.begin(); it != eqTable.end(); ++it) {
         set<int> thisSet = *it;
         for (set<int>::iterator it1 = thisSet.begin(); it1 != thisSet.end(); ++it1)
-           printf(" %d ", *it1);
-        printf(" --- \n");
-    }
+           printf("| %d ", *it1);
+        printf("\n");
+    }*/
 }
 
 unsigned char* CCA(unsigned char* image, int width, int height) {
@@ -335,8 +392,7 @@ unsigned char* CCA(unsigned char* image, int width, int height) {
             labelled[index] = heighest <= 0 ? nextFreeLabel++ : heighest;
             
             if (heighest >= 0)
-                addToEqTable(neighbourLabels);
-        
+                addToEqTable(neighbourLabels);        
 
             index++;        
         }
@@ -348,6 +404,17 @@ unsigned char* CCA(unsigned char* image, int width, int height) {
     return toCharArray(labelled, height * width);
 }
 
+void threshold(unsigned char* image, int width, int height) {
+    int histogram[256];
+    generateHistogram(histogram, image, width * height);
+
+    int threshold = calculateThreshold(histogram, width, height);
+
+    for (int i = 0; i < width * height; i++) {
+        image[i] = image[i] > threshold ? 255 : 0;
+    }
+}
+
 int main(int argc, char *argv[]) {
   if (argc < 3) {
     printf("Usage: ./ex1 image_in.jpg image_out.jpg\n");
@@ -357,19 +424,13 @@ int main(int argc, char *argv[]) {
   unsigned char *image;
   int width, height, channels;
   read_JPEG_file(argv[1], &width, &height, &channels, &image);
-
-  int histogram[256];
-  generateHistogram(histogram, image, width * height);
-
-  int threshold = calculateThreshold(histogram, width, height);
-
-  for (int i = 0; i < width * height; i++) {
-    image[i] = image[i] > threshold ? 255 : 0;
-  }
-  
+   
+  threshold(image, width, height);
   image = medianFilter(image, width, height);
   image = CCA(image, width, height);
+  //adjustContrast(image, width * height, 10);
   printf("threshold: %d, width: %3d, height: %3d\n", threshold, width, height);
+  printf("Num Distinct labels: %d\n", eqTable.size());
 
   write_JPEG_file(argv[2], width, height, channels, image, 95);
 
