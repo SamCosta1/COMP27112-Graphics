@@ -232,11 +232,21 @@ bool contains(set<int>* set, int val) {
     return set->find(val) != set->end();
 }
 
+void addAll(set<int>* base, set<int>* toAdd) {
+    base->insert(toAdd->begin(), toAdd->end());
+}
+
+void printSet(set<int> *set1) {
+    for (set<int>::iterator it = set1->begin(); it != set1->end(); ++it) 
+        printf(" %d ", *it);
+    printf("\n");
+}
+
 bool hasEmptyUnion(set<int>* set1, set<int>* set2) {
     for (set<int>::iterator it = set1->begin(); it != set1->end(); ++it) 
         if (contains(set2, *it))
-            return true;
-    return false;
+            return false;
+    return true;
 }
 
 set<set<int> > eqTable;
@@ -252,19 +262,56 @@ void addToEqTable(int * v) {
         eqTable.insert(newOne);  
 }
 
-void refactor(int * labelled) {
-    vector<vector<int> > eq;
+void relabel(int *labelled, int size) {
+    int index = 0;
+    for (int i = 0; i < size; i++) {
+        for (set<set<int> >::iterator it = eqTable.begin(); it != eqTable.end(); ++it) {
+            set<int> s = *it;
 
-    for (set<set<int> >::iterator it = eqTable.begin(); it != eqTable.end(); ++it) {
-	    set<int> thisSet = *it;
+            if (contains(&s, labelled[i])) {
+                labelled[i] = index;
+                continue;
+            }
+            index++;
 
-       // for (set<set<int> >::iterator it = eqTable.begin() + )
-
-
-
-        
-       
+        }
     }
+}
+
+void refactor() {
+   printf(" %d \n", eqTable.size());
+    int index = 0;
+    for (set<set<int> >::iterator it = eqTable.begin(); it != eqTable.end(); ++it) {
+	    set<int> baseSet = *it;
+        index++;
+
+        for (set<set<int> >::iterator it2 = eqTable.begin(); it2 != eqTable.end(); ++it2) {
+            if (it == it2)
+                continue;
+
+            set<int> s = *it2;
+            if (!hasEmptyUnion(&s, &baseSet)) {
+                
+                addAll(&baseSet, &s);
+                eqTable.erase(it2);
+                printf(" \n");
+                printSet(&s);
+                printSet(&baseSet);
+                printf(" \n");
+            } else {
+            }
+        }       
+    }
+
+   printf(" %d \n", index);
+    
+/*
+    for (set<set<int> >::iterator it = eqTable.begin(); it != eqTable.end(); ++it) {
+        set<int> thisSet = *it;
+        for (set<int>::iterator it1 = thisSet.begin(); it1 != thisSet.end(); ++it1)
+           printf(" %d ", *it1);
+        printf("\n");
+    }*/
 /*
         for (set<int>::iterator it1 = thisSet.begin(); it1 != thisSet.end(); ++it1)
             printf(" %d ", *it1);*/
@@ -300,7 +347,9 @@ unsigned char* CCA(unsigned char* image, int width, int height) {
         }
     }
     
-    refactor(labelled);
+    refactor();
+
+    relabel(labelled, width * height);
     return toCharArray(labelled, height * width);
 }
 
