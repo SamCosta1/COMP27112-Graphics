@@ -131,52 +131,76 @@ int calculateThreshold(int *histogram, int width, int height) {
     return threshold - 1;
 }
 
-void medianFilter(unsigned char *image, int width, int height) {
-    
+Boolean isTopRow(int index, unsigned char *image, int width, int height) {
+    return i < width;
+}
+
+Boolean isBottomRow(int index, unsigned char *image, int width, int height) {
+    return i >= (width-1) * height
+}
+
+Boolean isLeftMostColumn(int index, unsigned char *image, int width, int height) {
+    return i % width == 0;
+}
+
+Boolean isRightMostColumn(int index, unsigned char *image, int width, int height) {
+    return (i + 1) % width == 0;
+}
+
+unsigned char* medianFilter(unsigned char *image, int width, int height) {
+    unsigned char* newImg = (unsigned char *)malloc(sizeof(char) * width * height);
     for (int i = 0; i < width * height; i++) {
         int numAdded = 1;
         int sum = 0;
 
         sum += image[i];
-        if (i >= width) {  // One pixel up
+        if (!isTopRow(i, image, width,height)) {  // One pixel up
 
             sum += image[i - width];
             numAdded++;
-            if (i % width != 0) { // One up, one left 
+            if (!isLeftMostColumn(i, image, width,height)) { // One up, one left 
                 sum += image[i - width - 1]; 
                 numAdded++;
             }
-            if ((i+1) % width != 0) { // One up one right
+            if (!isRightMostColumn(i, image, width,height)) { // One up one right
                 sum += image[i - width + 1];
                 numAdded++;
             }
         }
 
-        if (i % width != 0) { // One left
+        if (!isLeftMostColumn(i, image, width,height)) { // One left
             sum += image[i - 1]; 
             numAdded++;
         }
 
-        if ((i+1) % width != 0) { // One right        
+        if (!isRightMostColumn(i, image, width,height)) { // One right        
             sum += image[i + 1]; 
             numAdded++;
         }
+
         if (i < (width-1) * height) {  // One pixel down
             sum += image[i + width]; 
             numAdded++;
-            if (i % width != 0) {  // One down, one left            
+            if (!isLeftMostColumn(i, image, width,height)) {  // One down, one left            
                 sum += image[i + width - 1]; 
                 numAdded++;
             }
-            if ((i+1) % width != 0) { // One dow one right
+            if (!isRightMostColumn(i, image, width,height)) { // One dow one right
                 sum += image[i + width + 1]; 
                 numAdded++;
             }
         }
 
-        image[i] = sum / numAdded;
-    
+        newImg[i] = sum / numAdded;    
     }
+
+    return newImg;
+}
+
+unsigned char* CCA(unsigned char* image, int width, int height) {
+    unsigned char* labelled = (unsigned char *)malloc(sizeof(char) * width * height);
+    
+    return labelled;
 }
 
 int main(int argc, char *argv[]) {
@@ -194,12 +218,12 @@ int main(int argc, char *argv[]) {
 
   int threshold = calculateThreshold(histogram, width, height);
 
-
   for (int i = 0; i < width * height; i++) {
     image[i] = image[i] > threshold ? 255 : 0;
   }
   
-  medianFilter(image, width, height);
+  //image = medianFilter(image, width, height);
+  image = CCA(image);
   printf("threshold: %d, width: %3d, height: %3d\n", threshold, width, height);
   write_JPEG_file(argv[2], width, height, channels, image, 95);
 

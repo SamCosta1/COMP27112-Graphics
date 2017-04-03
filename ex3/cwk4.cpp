@@ -205,16 +205,16 @@ void getNeighbourLabels(int *neighbourLabels, int *labelled, int width, int heig
         neighbourLabels[j] = -1;
 
     if (!isTopRow(i, width,height)) {  // One pixel up            
-        if (labelled[i - width] != -1)
-            neighbourLabels[numLabels++] = labelled[i - width];
-        if (!isLeftMostColumn(i, width, height) && labelled[i - width -1] != -1)  // One up, one left 
+        
+        neighbourLabels[numLabels++] = labelled[i - width];
+        if (!isLeftMostColumn(i, width, height))  // One up, one left 
             neighbourLabels[numLabels++] = labelled[i - width - 1];
         
-        if (!isRightMostColumn(i, width,height) && labelled[i - width + 1] != -1)  // One up one right
+        if (!isRightMostColumn(i, width,height))  // One up one right
             neighbourLabels[numLabels++] = labelled[i - width + 1];
     }
 
-    if (!isLeftMostColumn(i, width,height) && labelled[i - 1] != -1) // One left
+    if (!isLeftMostColumn(i, width,height)) // One left
         neighbourLabels[numLabels++] = labelled[i-1];
 }
 
@@ -279,7 +279,6 @@ void relabel(int *labelled, int size) {
 }
 
 void refactor() {
-   printf(" %d \n", eqTable.size());
     int index = 0;
     for (set<set<int> >::iterator it = eqTable.begin(); it != eqTable.end(); ++it) {
 	    set<int> baseSet = *it;
@@ -294,27 +293,23 @@ void refactor() {
                 
                 addAll(&baseSet, &s);
                 eqTable.erase(it2);
-                printf(" \n");
+               /* printf(" \n");
                 printSet(&s);
                 printSet(&baseSet);
-                printf(" \n");
+                printf(" \n");*/
             } else {
             }
         }       
     }
 
-   printf(" %d \n", index);
     
-/*
+
     for (set<set<int> >::iterator it = eqTable.begin(); it != eqTable.end(); ++it) {
         set<int> thisSet = *it;
         for (set<int>::iterator it1 = thisSet.begin(); it1 != thisSet.end(); ++it1)
            printf(" %d ", *it1);
-        printf("\n");
-    }*/
-/*
-        for (set<int>::iterator it1 = thisSet.begin(); it1 != thisSet.end(); ++it1)
-            printf(" %d ", *it1);*/
+        printf(" --- \n");
+    }
 }
 
 unsigned char* CCA(unsigned char* image, int width, int height) {
