@@ -325,7 +325,6 @@ void relabel(int *labelled, int size) {
 
             if (contains(&s, labelled[i])) {
                 labelled[i] = index;
-                printf("%d\n", labelled[i]);
                 continue;
             }
             
@@ -350,23 +349,12 @@ void refactor() {
                 
                 addAll(&baseSet, &s);
                 eqTable.erase(it2);
-               /* printf(" \n");
-                printSet(&s);
-                printSet(&baseSet);
-                printf(" \n");*/
+               
             } else {
             }
         }       
     }
 
-    
-/*
-    for (set<set<int> >::iterator it = eqTable.begin(); it != eqTable.end(); ++it) {
-        set<int> thisSet = *it;
-        for (set<int>::iterator it1 = thisSet.begin(); it1 != thisSet.end(); ++it1)
-           printf("| %d ", *it1);
-        printf("\n");
-    }*/
 }
 
 unsigned char* CCA(unsigned char* image, int width, int height) {
@@ -428,11 +416,11 @@ int main(int argc, char *argv[]) {
   threshold(image, width, height);
   image = medianFilter(image, width, height);
   image = CCA(image, width, height);
-  //adjustContrast(image, width * height, 10);
+  adjustContrast(image, width * height, 10);
   printf("threshold: %d, width: %3d, height: %3d\n", threshold, width, height);
   printf("Num Distinct labels: %d\n", eqTable.size());
 
   write_JPEG_file(argv[2], width, height, channels, image, 95);
-
+  
   return 0;
 }
