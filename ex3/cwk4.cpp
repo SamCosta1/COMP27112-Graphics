@@ -312,17 +312,7 @@ void addToEqTable(int * v) {
         eqTable.insert(newOne);
 }
 
-void adjustContrast(unsigned char *image, int size) {
-    int max = 0;
-    for (int i = 0; i < size; i++)
-        if (max < image[i])
-            max = image[i];
-
-    if (max == 0)
-        return;
-
-    int multiplier = 255 / max;
-
+void adjustContrast(unsigned char *image, int size, int multiplier) {
     
     for (int i = 0; i < size; i++)
         image[i] = image[i] * multiplier;
@@ -340,11 +330,10 @@ void relabel(int *labelled, int size) {
 
             if (contains(s, labelled[i])) {
                 labelled[i] = index;
-                continue;
+                break;
             }
             
             index++;
-
         }
     }
 }
@@ -359,17 +348,13 @@ void refactor() {
             if (it == it2)
                 continue;
 
-            set<int>* s = *it2;
-            
+            set<int>* s = *it2;            
 
             if (!hasEmptyUnion(s, baseSet)) {                
                 addAll(baseSet, s);
                 eqTable.erase(it2);
                
-            } 
-
-            
-            
+            }                       
         }       
     }
 
@@ -434,7 +419,7 @@ int main(int argc, char *argv[]) {
   image = medianFilter(image, width, height);
   image = CCA(image, width, height);
 
-  adjustContrast(image, width * height);
+  adjustContrast(image, width * height, 3);
   
   printf("Num Distinct labels: %d\n", eqTable.size());
 
