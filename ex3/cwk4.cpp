@@ -270,12 +270,12 @@ void getNeighbourLabels(int *neighbourLabels, int *labelled, int width, int heig
 
 
 int max(int *neighbourLabels) {
-    int heighest = -1;
+    int highest = -1;
     for (int i = 0; i < 4; i++) {
-        if (heighest < neighbourLabels[i])
-            heighest = neighbourLabels[i];
+        if (highest < neighbourLabels[i])
+            highest = neighbourLabels[i];
     }
-    return heighest;
+    return highest;
 }
 
 bool contains(set<int>* set, int val) {
@@ -299,20 +299,31 @@ bool hasEmptyUnion(set<int>* set1, set<int>* set2) {
     return true;
 }
 
-set<set<int> > eqTable;
+set<set<int>* > eqTable;
 
 void addToEqTable(int * v) {
-    set<int> newOne;
+    set<int>* newOne = new set<int>;
     
     for(int i = 0; i < 4; i++)
         if (v[i] > 0)
-            newOne.insert(v[i]);  
+            newOne->insert(v[i]);  
 
-    if (newOne.size() > 1)
-        eqTable.insert(newOne);  
+    if (newOne->size() > 1)
+        eqTable.insert(newOne);
 }
 
-void adjustContrast(unsigned char *image, int size, double multiplier) {
+void adjustContrast(unsigned char *image, int size) {
+    int max = 0;
+    for (int i = 0; i < size; i++)
+        if (max < image[i])
+            max = image[i];
+
+    if (max == 0)
+        return;
+
+    int multiplier = 255 / max;
+
+    
     for (int i = 0; i < size; i++)
         image[i] = image[i] * multiplier;
 }
@@ -323,11 +334,11 @@ void relabel(int *labelled, int size) {
         if (labelled[i] == 0)
             continue;
 
-        int index = 0;
-        for (set<set<int> >::iterator it = eqTable.begin(); it != eqTable.end(); ++it) {
-            set<int> s = *it;
+        int index = 1;
+        for (set<set<int>* >::iterator it = eqTable.begin(); it != eqTable.end(); ++it) {
+            set<int>* s = *it;
 
-            if (contains(&s, labelled[i])) {
+            if (contains(s, labelled[i])) {
                 labelled[i] = index;
                 continue;
             }
@@ -340,24 +351,28 @@ void relabel(int *labelled, int size) {
 
 void refactor() {
     int index = 0;
-    for (set<set<int> >::iterator it = eqTable.begin(); it != eqTable.end(); ++it) {
-	    set<int> baseSet = *it;
+    for (set<set<int>* >::iterator it = eqTable.begin(); it != eqTable.end(); ++it) {
+	    set<int>* baseSet = *it;
         index++;
 
-        for (set<set<int> >::iterator it2 = eqTable.begin(); it2 != eqTable.end(); ++it2) {
+        for (set<set<int>* >::iterator it2 = eqTable.begin(); it2 != eqTable.end(); ++it2) {
             if (it == it2)
                 continue;
 
-            set<int> s = *it2;
-            if (!hasEmptyUnion(&s, &baseSet)) {
-                
-                addAll(&baseSet, &s);
+            set<int>* s = *it2;
+            
+
+            if (!hasEmptyUnion(s, baseSet)) {                
+                addAll(baseSet, s);
                 eqTable.erase(it2);
                
-            } else {
-            }
+            } 
+
+            
+            
         }       
     }
+
 
 }
 
@@ -419,7 +434,7 @@ int main(int argc, char *argv[]) {
   image = medianFilter(image, width, height);
   image = CCA(image, width, height);
 
-  adjustContrast(image, width * height, 10);
+  adjustContrast(image, width * height);
   
   printf("Num Distinct labels: %d\n", eqTable.size());
 
