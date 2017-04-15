@@ -318,7 +318,11 @@ void adjustContrast(unsigned char *image, int size, double multiplier) {
 }
 
 void relabel(int *labelled, int size) {
+
     for (int i = 0; i < size; i++) {
+        if (labelled[i] == 0)
+            continue;
+
         int index = 0;
         for (set<set<int> >::iterator it = eqTable.begin(); it != eqTable.end(); ++it) {
             set<int> s = *it;
@@ -367,23 +371,20 @@ unsigned char* CCA(unsigned char* image, int width, int height) {
     int index = 0;
    
     int *neighbourLabels = (int *)malloc(sizeof(int) * 3);
-    for (int i = 0; i < height; i++) {
-        for (int j = 0; j < width; j++) {
-            int* neighbourLabels = (int *)malloc(sizeof(int) * 4);
-            if (image[index] == 255) {
-                labelled[index++] = 0;
-                continue;
-            }
-            getNeighbourLabels(neighbourLabels, labelled, width, height, index);
-            
-            int heighest = max(neighbourLabels);
-            labelled[index] = heighest <= 0 ? nextFreeLabel++ : heighest;
-            
-            if (heighest >= 0)
-                addToEqTable(neighbourLabels);        
-
-            index++;        
+    for (int index = 0; index < width * height; index++) {
+        int* neighbourLabels = (int *)malloc(sizeof(int) * 4);
+        if (image[index] == 255) {
+            labelled[index] = 0;
+            continue;
         }
+        getNeighbourLabels(neighbourLabels, labelled, width, height, index);
+        
+        int highest = max(neighbourLabels);
+        
+        labelled[index] = highest <= 0 ? nextFreeLabel++ : highest;
+        
+        if (highest > 0)
+            addToEqTable(neighbourLabels);        
     }
     
     refactor();
@@ -401,6 +402,7 @@ void threshold(unsigned char* image, int width, int height) {
     for (int i = 0; i < width * height; i++) {
         image[i] = image[i] > threshold ? 255 : 0;
     }
+    printf("threshold: %d, width: %3d, height: %3d\n", threshold, width, height);
 }
 
 int main(int argc, char *argv[]) {
@@ -416,8 +418,9 @@ int main(int argc, char *argv[]) {
   threshold(image, width, height);
   image = medianFilter(image, width, height);
   image = CCA(image, width, height);
+
   adjustContrast(image, width * height, 10);
-  printf("threshold: %d, width: %3d, height: %3d\n", threshold, width, height);
+  
   printf("Num Distinct labels: %d\n", eqTable.size());
 
   write_JPEG_file(argv[2], width, height, channels, image, 95);
