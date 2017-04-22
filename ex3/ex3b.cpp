@@ -4,8 +4,6 @@
 #include <vector>
 #include <algorithm>
 #include <set>
-#include <stack>
-#include <iostream>
 
 using namespace std;
 
@@ -90,20 +88,11 @@ write_JPEG_file(char *filename, int width, int height, int channels,
   jpeg_destroy_compress(&cinfo);
 }
 
-
-void invertBlack(unsigned char *image, int size) {
-    for (int i = 0; i < size; i++)
-        if (image[i] == 0)
-            image[i] = 255;
-}
-int * generateHistogram(unsigned char *image, int noPixels) {
-    int *histogram = (int *)malloc(256 * sizeof(int));
+void generateHistogram(int *histogram, unsigned char *image, int noPixels) {
     for (int i = 0; i < 256; i++) 
         histogram[i] = 0;
     for (int i = 0; i < noPixels; i++) 
         histogram[image[i]]++;
-
-    return histogram;
 }
 
 int getLowestValue(int *histogram) {
@@ -260,28 +249,25 @@ unsigned char* toCharArray(int* labelled, int size) {
     return array;
 }
 
+void getNeighbourLabels(int *neighbourLabels, int *labelled, int width, int height, int i) {
+    int numLabels = 1;       
+    for (int j = 0; j < 4; j++)
+        neighbourLabels[j] = -1;
 
-
-void printNumLabels(unsigned char *labels, int size) {
-    int numLabels = 0;
-
-    int* histogram = generateHistogram(labels, size);
-
-    for (int i = 1; i < 256; i++)
-        if (histogram[i] != 0)
-            numLabels++;
-    printf("No Labels: %d\n", numLabels);
-}
-
-unsigned char* invert(unsigned char *image, int size) {
-    unsigned char *newImage = (unsigned char *)malloc(sizeof(char) * size);
-
-    for (int i = 0; i < size; i++) {
-        newImage[i] = 255 - image[i];
+    if (!isTopRow(i, width,height)) {  // One pixel up            
+        
+        neighbourLabels[numLabels++] = labelled[i - width];
+        if (!isLeftMostColumn(i, width, height))  // One up, one left 
+            neighbourLabels[numLabels++] = labelled[i - width - 1];
+        
+        if (!isRightMostColumn(i, width,height))  // One up one right
+            neighbourLabels[numLabels++] = labelled[i - width + 1];
     }
 
-    return newImage;
+    if (!isLeftMostColumn(i, width,height)) // One left
+        neighbourLabels[numLabels++] = labelled[i-1];
 }
+
 
 int max(int *neighbourLabels) {
     int highest = -1;
@@ -322,14 +308,14 @@ void addToEqTable(int * v) {
         if (v[i] > 0)
             newOne->insert(v[i]);  
 
-    if (newOne->size() > 0)
+    if (newOne->size() > 1)
         eqTable.insert(newOne);
 }
 
 void adjustContrast(unsigned char *image, int size, int multiplier) {
     
     for (int i = 0; i < size; i++)
-        image[i] = image[i] * multiplier > 255 ? 255 : image[i] * multiplier;
+        image[i] = image[i] * multiplier;
 }
 
 void relabel(int *labelled, int size) {
@@ -350,27 +336,12 @@ void relabel(int *labelled, int size) {
             index++;
         }
     }
-int index = -1;
-    for (int i = 0; i < size; i++) {
-        if (labelled[i] <= 0)
-            continue;
-        int thisLabel = labelled[i];
-        
-        for (int j = i; j < size; j++)
-            if (labelled[j] == thisLabel)
-                labelled[j] = index;
-        index--;        
-    }
-
-    for (int i = 0; i < size; i++)
-        labelled[i] *= -1;
-    
 }
 
 void refactor() {
     int index = 0;
     for (set<set<int>* >::iterator it = eqTable.begin(); it != eqTable.end(); ++it) {
-	    set<int>* baseSet = *it;        
+	    set<int>* baseSet = *it;
         index++;
 
         for (set<set<int>* >::iterator it2 = eqTable.begin(); it2 != eqTable.end(); ++it2) {
@@ -379,84 +350,33 @@ void refactor() {
 
             set<int>* s = *it2;            
 
-            if (!hasEmptyUnion(s, baseSet)) {     
+            if (!hasEmptyUnion(s, baseSet)) {                
                 addAll(baseSet, s);
-                eqTable.erase(it2);               
+                eqTable.erase(it2);
+               
             }                       
         }       
-    }/*
- for (set<set<int>* >::iterator it = eqTable.begin(); it != eqTable.end(); ++it) {
-     set<int>* s = *it;
-     printSet(s);
-     break;
- }*/
-
-}
-
-unsigned char* reduceNoise(unsigned char *labels, unsigned char *image, int size) {
-    int* histogram = generateHistogram(labels, size);
-
-    for (int i = 0; i < size; i++) {
-        if (histogram[labels[i]] < 60) {
-            image[i] = 255;
-            labels[i] = 0;
-        }
     }
 
-    return labels;
-}
 
-unsigned char* subtract(unsigned char *image1, unsigned char *image2, int size) {
-    unsigned char *newImage = (unsigned char *)malloc(sizeof(char) * size);
-
-    for (int i = 0; i < size; i++) {
-        int diff = image1[i] - image2[i];
-        newImage[i] = diff < 0 ? 0 : diff;
-    }
-
-    return newImage;
-}
-
-void getNeighbourLabels(int *neighbourLabels, int *labelled, int width, int height, int i) {
-    int numLabels = 1;       
-    for (int j = 0; j < 4; j++)
-        neighbourLabels[j] = -1;
-
-    if (!isTopRow(i, width,height)) {  // One pixel up            
-        
-        neighbourLabels[numLabels++] = labelled[i - width];
-        if (!isLeftMostColumn(i, width, height))  // One up, one left 
-            neighbourLabels[numLabels++] = labelled[i - width - 1];
-        
-        if (!isRightMostColumn(i, width,height))  // One up one right
-            neighbourLabels[numLabels++] = labelled[i - width + 1];
-    }
-
-    if (!isLeftMostColumn(i, width,height)) // One left
-        neighbourLabels[numLabels++] = labelled[i-1];
 }
 
 unsigned char* CCA(unsigned char* image, int width, int height) {
-    eqTable.clear();
     int* labelled = (int *)malloc(sizeof(int) * width * height);
-
-    for (int i = 0; i < width * height; i++) 
-        if (image[i] == 255)
-            labelled[i] = 0;
-        else
-            labelled[i] = -1;
-    
+    for (int i = 0; i < width * height; i++) {
+        labelled[i] = -1;
+    }
     
     int nextFreeLabel = 1;
- 
+    int index = 0;
    
     int *neighbourLabels = (int *)malloc(sizeof(int) * 3);
     for (int index = 0; index < width * height; index++) {
-        if (image[index] == 255)             
+        int* neighbourLabels = (int *)malloc(sizeof(int) * 4);
+        if (image[index] == 255) {
+            labelled[index] = 0;
             continue;
-        
-        int neighbourLabels[4];
-
+        }
         getNeighbourLabels(neighbourLabels, labelled, width, height, index);
         
         int highest = max(neighbourLabels);
@@ -470,135 +390,19 @@ unsigned char* CCA(unsigned char* image, int width, int height) {
     refactor();
 
     relabel(labelled, width * height);
-    unsigned char *charLabels = toCharArray(labelled, height * width);
-    reduceNoise(charLabels, image, width * height);
-    printNumLabels(charLabels, width*height);
-
-    return charLabels;
+    return toCharArray(labelled, height * width);
 }
 
-unsigned char* threshold(unsigned char* image, int width, int height) {
-    int* histogram = generateHistogram(image, width * height);
+void threshold(unsigned char* image, int width, int height) {
+    int histogram[256];
+    generateHistogram(histogram, image, width * height);
 
     int threshold = calculateThreshold(histogram, width, height);
 
-    unsigned char *newImage = (unsigned char *)malloc(sizeof(char) * width * height);
     for (int i = 0; i < width * height; i++) {
-        newImage[i] = image[i] > threshold ? 255 : 0;
+        image[i] = image[i] > threshold ? 255 : 0;
     }
-
     printf("threshold: %d, width: %3d, height: %3d\n", threshold, width, height);
-
-    return newImage;
-}
-
-
-bool isAHit(unsigned char* image, int structElement[3][3], int index, int width) {
-    index = index - width - 1;
-    for (int i = 0; i < 3; i++) {
-        for (int j = 0; j < 3; j++) {
-        
-            if (image[index] == 255 && structElement[i][j] == 1)
-                return false;
-            index++;
-        }
-        index += width - 3;
-    }
-    return true;
-}
-unsigned char * erode(unsigned char* image, int width, int height, int noTimes) {
-    unsigned char *newImage = (unsigned char *)malloc(sizeof(char) * width * height);
-
-    int structElement[3][3] = { {0, 1, 0},
-                                {1, 1, 1},
-                                {0, 1, 0} };
-    
-    for (int i = width + 1; i < width * height - width - 1; i++) {
-
-        if (isRightMostColumn(i, width, height) || isLeftMostColumn(i, width, height)) 
-            continue;
-
-        newImage[i] = isAHit(image, structElement, i, width) ? 0 : 255;  
-    }
-
-    if (noTimes == 1)
-        return newImage;
-    else
-        return erode(newImage, width, height, noTimes - 1);
-}
-
-void fillHole(unsigned char *in, unsigned char* out, int width, int height, int index) {
-    int count = 0;
-    stack<int> pixels;
-    pixels.push(index);
-
-    while (pixels.size() != 0) {
-
-        int thisIndex = pixels.top();
-        pixels.pop();
-
-        if (out[thisIndex] == 255)
-            continue;
-
-        out[thisIndex] = 255;
-
-        if (!isTopRow(thisIndex, width, height) && in[thisIndex - width] == 255 
-                                            && out[thisIndex - width] != 255) 
-            pixels.push(thisIndex - width);
-
-        if (!isLeftMostColumn(thisIndex, width, height) && in[thisIndex - 1] == 255 
-                                                        && out[thisIndex - 1] != 255)
-            pixels.push(thisIndex - 1);
-
-        if (!isRightMostColumn(thisIndex, width, height) && in[thisIndex + 1] == 255
-                                                         && out[thisIndex + 1] != 255)
-            pixels.push(thisIndex + 1);
-
-        if (!isBottomRow(thisIndex, width, height) && in[thisIndex + width] == 255
-                                                   && out[thisIndex + width] != 255)
-            pixels.push(thisIndex + width);
-            
-
-       
-    }
-}
-
-unsigned char *fillHoles(unsigned char *image, int width, int height) {
-    unsigned char *newImage = (unsigned char *)malloc(sizeof(char) * width * height);
-    
-    for (int i = 0; i < width * height; i++)
-        newImage[i] = 0;
-
-    fillHole(image, newImage, width, height, 0);
-    return newImage;
-
-}
-
-unsigned char* highlightRoundOnes(unsigned char *image, unsigned char *labels, unsigned char* subtractedLabels, int size) {
-    double fourPi = 12.5663706144;
-
-    int* labHist  = generateHistogram(labels, size);
-    int* subHist = generateHistogram(subtractedLabels, size);
-
-    unsigned char *newImage = (unsigned char *)malloc(sizeof(char) * size);
-
-/*
-    for (int i = 0; i < 256; i++) 
-        printf("%d   %d\n", labHist[i], subHist[i]);*/
-
-    for (int i = 0; i < size; i++) {
-        if (image[i] == 0)
-            continue; 
-
-        double p2A = pow(subHist[labels[i]], 2) / labHist[labels[i]];
-        
-        double roundness = abs(p2A - fourPi);
-printf("roundness: %f %f\n", roundness, p2A);
-        newImage[i] = roundness < 24 ? 255 : 50; 
-    }
-
-    return newImage;
-
 }
 
 int main(int argc, char *argv[]) {
@@ -608,41 +412,18 @@ int main(int argc, char *argv[]) {
   }
 
   unsigned char *image;
-  unsigned char *labels;
-  unsigned char *thresholded;
-  unsigned char *eroded;
-  unsigned char *subtracted;
-  unsigned char *highlighted;
-  unsigned char *inverted;
-  unsigned char *subtractedLabels;
-
   int width, height, channels;
   read_JPEG_file(argv[1], &width, &height, &channels, &image);
-  image = medianFilter(image, width, height); 
+   
+  threshold(image, width, height);
+  image = medianFilter(image, width, height);
+  image = CCA(image, width, height);
+
+  adjustContrast(image, width * height, 3);
   
-  thresholded = fillHoles(threshold(image, width, height), width, height);
+  printf("Num Distinct labels: %d\n", eqTable.size());
 
-  labels = CCA(thresholded, width, height);
-
-  eroded = erode(thresholded, width, height, 2);
-
-  subtracted = subtract(eroded, thresholded, width * height);
-  inverted = invert(subtracted, width * height);  
-
-  
-  subtractedLabels = CCA(inverted, width, height);
-
-  highlighted = highlightRoundOnes(subtractedLabels, labels, subtractedLabels, width * height);
-
-
-  write_JPEG_file(argv[2], width, height, channels, thresholded, 95);
-  write_JPEG_file(argv[3], width, height, channels, labels, 95);
-  write_JPEG_file(argv[4], width, height, channels, eroded, 95);
-  write_JPEG_file(argv[5], width, height, channels, subtracted, 95);
-  write_JPEG_file(argv[6], width, height, channels, inverted, 95);
-  write_JPEG_file(argv[7], width, height, channels, subtractedLabels, 95);
-  write_JPEG_file(argv[8], width, height, channels, highlighted, 95);
+  write_JPEG_file(argv[2], width, height, channels, image, 95);
   
   return 0;
-
 }
