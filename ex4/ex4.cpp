@@ -257,24 +257,7 @@ unsigned char* toCharArray(int* labelled, int size) {
     return array;
 }
 
-void getNeighbourLabels(int *neighbourLabels, int *labelled, int width, int height, int i) {
-    int numLabels = 1;       
-    for (int j = 0; j < 4; j++)
-        neighbourLabels[j] = -1;
 
-    if (!isTopRow(i, width,height)) {  // One pixel up            
-        
-        neighbourLabels[numLabels++] = labelled[i - width];
-        if (!isLeftMostColumn(i, width, height))  // One up, one left 
-            neighbourLabels[numLabels++] = labelled[i - width - 1];
-        
-        if (!isRightMostColumn(i, width,height))  // One up one right
-            neighbourLabels[numLabels++] = labelled[i - width + 1];
-    }
-
-    if (!isLeftMostColumn(i, width,height)) // One left
-        neighbourLabels[numLabels++] = labelled[i-1];
-}
 
 void printNumLabels(unsigned char *labels, int size) {
     int numLabels = 0;
@@ -336,7 +319,7 @@ void addToEqTable(int * v) {
         if (v[i] > 0)
             newOne->insert(v[i]);  
 
-    if (newOne->size() > 1)
+    if (newOne->size() > 0)
         eqTable.insert(newOne);
 }
 
@@ -364,12 +347,27 @@ void relabel(int *labelled, int size) {
             index++;
         }
     }
+int index = -1;
+    for (int i = 0; i < size; i++) {
+        if (labelled[i] <= 0)
+            continue;
+        int thisLabel = labelled[i];
+        
+        for (int j = i; j < size; j++)
+            if (labelled[j] == thisLabel)
+                labelled[j] = index;
+        index--;        
+    }
+
+    for (int i = 0; i < size; i++)
+        labelled[i] *= -1;
+    
 }
 
 void refactor() {
     int index = 0;
     for (set<set<int>* >::iterator it = eqTable.begin(); it != eqTable.end(); ++it) {
-	    set<int>* baseSet = *it;
+	    set<int>* baseSet = *it;        
         index++;
 
         for (set<set<int>* >::iterator it2 = eqTable.begin(); it2 != eqTable.end(); ++it2) {
@@ -378,12 +376,17 @@ void refactor() {
 
             set<int>* s = *it2;            
 
-            if (!hasEmptyUnion(s, baseSet)) {                
+            if (!hasEmptyUnion(s, baseSet)) {     
                 addAll(baseSet, s);
                 eqTable.erase(it2);               
             }                       
         }       
-    }
+    }/*
+ for (set<set<int>* >::iterator it = eqTable.begin(); it != eqTable.end(); ++it) {
+     set<int>* s = *it;
+     printSet(s);
+     break;
+ }*/
 
 }
 
@@ -412,23 +415,46 @@ unsigned char* subtract(unsigned char *image1, unsigned char *image2, int size) 
     return newImage;
 }
 
+void getNeighbourLabels(int *neighbourLabels, int *labelled, int width, int height, int i) {
+    int numLabels = 1;       
+    for (int j = 0; j < 4; j++)
+        neighbourLabels[j] = -1;
+
+    if (!isTopRow(i, width,height)) {  // One pixel up            
+        
+        neighbourLabels[numLabels++] = labelled[i - width];
+        if (!isLeftMostColumn(i, width, height))  // One up, one left 
+            neighbourLabels[numLabels++] = labelled[i - width - 1];
+        
+        if (!isRightMostColumn(i, width,height))  // One up one right
+            neighbourLabels[numLabels++] = labelled[i - width + 1];
+    }
+
+    if (!isLeftMostColumn(i, width,height)) // One left
+        neighbourLabels[numLabels++] = labelled[i-1];
+}
+
 unsigned char* CCA(unsigned char* image, int width, int height) {
     eqTable.clear();
     int* labelled = (int *)malloc(sizeof(int) * width * height);
-    for (int i = 0; i < width * height; i++) {
-        labelled[i] = -1;
-    }
+
+    for (int i = 0; i < width * height; i++) 
+        if (image[i] == 255)
+            labelled[i] = 0;
+        else
+            labelled[i] = -1;
+    
     
     int nextFreeLabel = 1;
-    int index = 0;
+ 
    
     int *neighbourLabels = (int *)malloc(sizeof(int) * 3);
     for (int index = 0; index < width * height; index++) {
-        int* neighbourLabels = (int *)malloc(sizeof(int) * 4);
-        if (image[index] == 255) {
-            labelled[index] = 0;
+        if (image[index] == 255)             
             continue;
-        }
+        
+        int neighbourLabels[4];
+
         getNeighbourLabels(neighbourLabels, labelled, width, height, index);
         
         int highest = max(neighbourLabels);
@@ -551,19 +577,21 @@ unsigned char* highlightRoundOnes(unsigned char *image, int labHist[256], int er
     double fourPi = 12.5663706144;
 
     unsigned char *newImage = (unsigned char *)malloc(sizeof(char) * size);
-
+/*
     double classification[256];
 
     for (int i = 0; i < 256; i++)
-        classification[i] = pow(erodHist[i], 2) / labHist[i];
+        classification[i] = pow(erodHist[i], 2) / labHist[i];*/
 
     for (int i = 0; i < size; i++) {
         if (image[i] == 0)
             continue; 
 
-        double roundness = abs(fourPi - classification[image[i]]);
-
-        newImage[i] = roundness < 20 ? 255 : 50; 
+        double p2A = pow(erodHist[image[i]], 2) / labHist[image[i]];
+        
+        double roundness = abs(p2A - fourPi);
+printf("roundness: %f\n", roundness);
+        newImage[i] = roundness < 29 ? 255 : 50; 
     }
 
     return newImage;
@@ -592,8 +620,10 @@ int main(int argc, char *argv[]) {
   thresholded = fillHoles(threshold(image, width, height), width, height);
 
   labels = CCA(thresholded, width, height);
-  adjustContrast(labels, width * height, 15);
-/*
+
+
+  //adjustContrast(labels, width * height, 15);
+
   eroded = erode(thresholded, width, height, 2);
 
   subtracted = subtract(eroded, thresholded, width * height);
@@ -607,26 +637,17 @@ int main(int argc, char *argv[]) {
   int labelsHistogram[256];   generateHistogram(labelsHistogram, labels, width * height);
   highlighted = highlightRoundOnes(subtractedLabels, labelsHistogram, erodedHistogram, width * height);
 
-  for (int i = 0; i < width * height; i++) {
-      int l = 1;
-      if (subtractedLabels[i] == l)
-        subtractedLabels[i] = 255;
-
-        if (labels[i] == l)
-            labels[i] = 255;
-            
-  }
-*/
-  //invertBlack(labels, width * height);
+//  invertBlack(subtractedLabels, width * height);
   /*
-  adjustContrast(subtractedLabels, width * height, 100);*/
+  adjustContrast(subtractedLabels, width * height, 12);
+  adjustContrast(labels, width * height, 7);*/
   write_JPEG_file(argv[2], width, height, channels, thresholded, 95);
-  write_JPEG_file(argv[3], width, height, channels, labels, 95);/*
+  write_JPEG_file(argv[3], width, height, channels, labels, 95);
   write_JPEG_file(argv[4], width, height, channels, eroded, 95);
   write_JPEG_file(argv[5], width, height, channels, subtracted, 95);
   write_JPEG_file(argv[6], width, height, channels, inverted, 95);
   write_JPEG_file(argv[7], width, height, channels, subtractedLabels, 95);
-  write_JPEG_file(argv[8], width, height, channels, highlighted, 95);*/
+  write_JPEG_file(argv[8], width, height, channels, highlighted, 95);
   
   return 0;
 }
