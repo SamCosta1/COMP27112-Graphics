@@ -498,7 +498,7 @@ bool isAHit(unsigned char* image, int structElement[3][3], int index, int width)
     for (int i = 0; i < 3; i++) {
         for (int j = 0; j < 3; j++) {
         
-            if (image[index] == 255 && structElement[i][j] == 1)
+            if (image[index] == 0 && structElement[i][j] == 1)
                 return false;
             index++;
         }
@@ -518,7 +518,7 @@ unsigned char * erode(unsigned char* image, int width, int height, int noTimes) 
         if (isRightMostColumn(i, width, height) || isLeftMostColumn(i, width, height)) 
             continue;
 
-        newImage[i] = isAHit(image, structElement, i, width) ? 0 : 255;  
+        newImage[i] = isAHit(image, structElement, i, width) ? image[i] : 0;  
     }
 
     if (noTimes == 1)
@@ -557,9 +557,7 @@ void fillHole(unsigned char *in, unsigned char* out, int width, int height, int 
         if (!isBottomRow(thisIndex, width, height) && in[thisIndex + width] == 255
                                                    && out[thisIndex + width] != 255)
             pixels.push(thisIndex + width);
-            
-
-       
+                   
     }
 }
 
@@ -574,7 +572,7 @@ unsigned char *fillHoles(unsigned char *image, int width, int height) {
 
 }
 
-unsigned char* highlightRoundOnes(unsigned char *image, unsigned char *labels, unsigned char* subtractedLabels, int size) {
+unsigned char* highlightRoundOnes(unsigned char *labels, unsigned char* subtractedLabels, int size) {
     double fourPi = 12.5663706144;
 
     int* labHist  = generateHistogram(labels, size);
@@ -582,19 +580,21 @@ unsigned char* highlightRoundOnes(unsigned char *image, unsigned char *labels, u
 
     unsigned char *newImage = (unsigned char *)malloc(sizeof(char) * size);
 
-/*
-    for (int i = 0; i < 256; i++) 
-        printf("%d   %d\n", labHist[i], subHist[i]);*/
+    double characterization[256];
+    for (int i = 0; i < 256; i++) {
+
+        characterization[i] = pow(subHist[i], 2) / labHist[i];
+        printf("%d: %d %d %f\n", i, subHist[i], labHist[i], characterization[i]);
+    }
 
     for (int i = 0; i < size; i++) {
-        if (image[i] == 0)
+        if (labels[i] == 0 || subtractedLabels == 0)
             continue; 
 
-        double p2A = pow(subHist[labels[i]], 2) / labHist[labels[i]];
         
-        double roundness = abs(p2A - fourPi);
-printf("roundness: %f %f\n", roundness, p2A);
-        newImage[i] = roundness < 24 ? 255 : 50; 
+        double roundness = abs(characterization[labels[i]] - fourPi);
+//printf("roundness: %f %f\n", roundness, characterization[labels[i]]);
+        newImage[i] = roundness < 1.7 ? 255 : 50; 
     }
 
     return newImage;
@@ -624,23 +624,25 @@ int main(int argc, char *argv[]) {
 
   labels = CCA(thresholded, width, height);
 
-  eroded = erode(thresholded, width, height, 2);
+  eroded = erode(labels, width, height, 1);
 
-  subtracted = subtract(eroded, thresholded, width * height);
-  inverted = invert(subtracted, width * height);  
+  subtracted = subtract(labels, eroded, width * height);
+//adjustContrast(subtracted, width * height, 2);
+  highlighted = highlightRoundOnes(eroded, subtracted, width * height);
 
-  
-  subtractedLabels = CCA(inverted, width, height);
+  for (int i = 0; i < width * height; i++) {
+      int lab = 62;
 
-  highlighted = highlightRoundOnes(subtractedLabels, labels, subtractedLabels, width * height);
-
+      if (subtracted[i] == lab)
+        subtracted[i] = 255;
+      if (labels[i] == lab)
+        labels[i] = 255;
+  }
 
   write_JPEG_file(argv[2], width, height, channels, thresholded, 95);
   write_JPEG_file(argv[3], width, height, channels, labels, 95);
   write_JPEG_file(argv[4], width, height, channels, eroded, 95);
   write_JPEG_file(argv[5], width, height, channels, subtracted, 95);
-  write_JPEG_file(argv[6], width, height, channels, inverted, 95);
-  write_JPEG_file(argv[7], width, height, channels, subtractedLabels, 95);
   write_JPEG_file(argv[8], width, height, channels, highlighted, 95);
   
   return 0;
