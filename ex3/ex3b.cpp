@@ -377,6 +377,7 @@ unsigned char* CCA(unsigned char* image, int width, int height) {
             labelled[index] = 0;
             continue;
         }
+        
         getNeighbourLabels(neighbourLabels, labelled, width, height, index);
         
         int highest = max(neighbourLabels);
@@ -416,8 +417,8 @@ int main(int argc, char *argv[]) {
   read_JPEG_file(argv[1], &width, &height, &channels, &image);
    
   threshold(image, width, height);
-  image = medianFilter(image, width, height);
-  image = CCA(image, width, height);
+  //image = medianFilter(image, width, height);
+  //image = CCA(image, width, height);
 
   adjustContrast(image, width * height, 3);
   
